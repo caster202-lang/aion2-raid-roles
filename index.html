@@ -137,6 +137,7 @@ svg .zonefill { fill: var(--line); opacity: .35; }
     <div class="tabs" role="tablist" id="subTabs" aria-label="기믹"></div>
   </div>
   <div class="grid" id="results"></div>
+  <p class="status warn" id="resultsNote" hidden></p>
   <p class="hint" id="tabHint"></p>
   <figure>
     <div id="diagram"></div>
@@ -498,9 +499,11 @@ function copyRow(p, text, label, empty) {
   return el('div', { className: 'copy' }, el('code', {}, text || empty || '이름 5개를 모두 입력하면 문구가 나옵니다'), btn);
 }
 
+function showNote(text) { const n = document.getElementById('resultsNote'); n.textContent = text; n.hidden = !text; }
+
 function renderResults(calc) {
   const host = document.getElementById('results');
-  host.replaceChildren();
+  host.replaceChildren(); showNote('');
   if (st.raid === 'snow') { ({ n1: renderSnow1, wave: renderWave }[st.snowTab] || renderWedge)(host); return; }
   [0, 1].forEach(p => {
     const c = calc[p];
@@ -567,7 +570,7 @@ function renderSnow1(host) {
     card.append(copyRow(p, textSnow1(st, p), `${p + 1}파티 복사`, empty));
     host.append(card);
   });
-  if (c.ok && c.short) host.append(el('p', { className: 'status warn', style: 'grid-column: 1 / -1' }, '수호성·검성이 2명보다 적어 다른 직업을 탱커로 넣었습니다. 눌러서 바꿔 주세요.'));
+  if (c.ok && c.short) showNote('수호성·검성이 2명보다 적어 다른 직업을 탱커로 넣었습니다. 눌러서 바꿔 주세요.');
 }
 
 function renderWedge(host) {
