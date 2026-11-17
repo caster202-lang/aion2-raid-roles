@@ -211,3 +211,4 @@
 - 브라우저에서 Gemini `generateContent`를 직접 호출(키는 `x-goog-api-key` 헤더). 모델은 `gemini-flash-latest`, 없으면 `gemini-2.5-flash`. 요청 문구는 기존 AI 요청 문구와 같다.
 - 받은 글은 명단 칸에 넣고 기존 "명단 채우기"로 처리. 429는 무료 한도 안내, 400·401·403은 키 확인 안내.
 - 실제 키로 읽은 정확도는 아직 확인하지 않았다. 기존 "AI 앱으로 직접" 방법은 그대로 둔다.
+- (2026-11-18) 사용자 실제 시험에서 "high demand"(503)로 실패 → 503·500·429·404면 다음 모델(gemini-flash-latest → gemini-2.5-flash → gemini-flash-lite-latest → gemini-2.5-flash-lite)로 넘어가고, 실패 시 "다시 읽기" 버튼으로 같은 캡처를 다시 보낸다.
