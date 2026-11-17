@@ -8,13 +8,13 @@
 :root {
   --bg: #f4f5f7; --card: #ffffff; --fg: #1c1f26; --muted: #5d6573; --line: #d5d9e0;
   --accent: #5b46d6; --accent-fg: #ffffff; --field: #ffffff;
-  --p1: #c8372d; --p2: #2c8a3f; --two: #c8372d; --one: #1f77c9; --warn: #9a5b00; --front: #1aa3d9; --back: #d9a400;
+  --p1: #c8372d; --p2: #1f77c9; --two: #c8372d; --one: #1f77c9; --warn: #9a5b00; --front: #1aa3d9; --back: #d9a400;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0f1218; --card: #181c25; --fg: #e8ebf1; --muted: #9aa3b2; --line: #2e3442;
     --accent: #a58bff; --accent-fg: #14112b; --field: #10141c;
-    --p1: #ff7a6e; --p2: #6fd487; --two: #ff7a6e; --one: #6db7ff; --warn: #f0b354; --front: #5fd0ff; --back: #ffd24a;
+    --p1: #ff7a6e; --p2: #6db7ff; --two: #ff7a6e; --one: #6db7ff; --warn: #f0b354; --front: #5fd0ff; --back: #ffd24a;
   }
 }
 * { box-sizing: border-box; }
@@ -654,8 +654,9 @@ function drawWedge() {
     const [x, y] = at(h, r, cx, cy);
     svg.append(sv('circle', { cx: x, cy: y, r: 10, class: `mark ${side}` }));
     const name = c.ok ? st.rows[c.order[base + k]].name.trim() : '—';
-    const lab = placeLabel(h, x, y, 16);
-    if (side === 'inner' && (h === 3 || h === 9)) lab.y -= 14;
+    // 내부 3·9시 이름표는 점 위에서 바깥쪽으로 써서 외부 3·9시 이름과 보스 마커에 겹치지 않게 한다
+    const lab = side === 'inner' && (h === 3 || h === 9)
+      ? { x: h === 3 ? x - 8 : x + 8, y: y - 18, 'text-anchor': h === 3 ? 'start' : 'end' } : placeLabel(h, x, y, 16);
     svg.append(sv('text', lab, `${side === 'inner' ? '내' : '외'} ${h}시 ${name}`));
   }));
   drawBoss(svg, cx, cy);
