@@ -88,6 +88,12 @@ body.snow #inputs .status { display: none; }
 .names button[aria-pressed=true] { box-shadow: inset 0 0 0 2px var(--accent); }
 svg .inner { stroke: var(--p1); } svg .outer { stroke: var(--one); }
 svg .zonefill { fill: var(--line); opacity: .35; }
+.paste { margin-bottom: 12px; }
+.paste summary { cursor: pointer; font-weight: 600; }
+.paste .steps { margin: 8px 0; padding-left: 20px; font-size: 13px; color: var(--muted); }
+.paste textarea { width: 100%; margin-top: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--field); color: var(--fg); font: inherit; resize: vertical; }
+.paste .copy .status { flex: 1; margin: 0; }
 #selftest li.fail { color: var(--p1); font-weight: 600; }
 </style>
 </head>
@@ -109,6 +115,20 @@ svg .zonefill { fill: var(--line); opacity: .35; }
       <button type="button" id="btnReset">초기화</button>
     </div>
   </div>
+  <details class="card paste" id="pasteBox">
+    <summary>명단 붙여넣기 · 캡처를 AI에게 읽혀서 한 번에 채우기</summary>
+    <ol class="steps">
+      <li>게임에서 파티창을 캡처합니다.</li>
+      <li>ChatGPT·Claude 같은 AI 앱에 캡처를 올리고, 아래 요청 문구를 복사해 같이 보냅니다.</li>
+      <li>AI가 적어 준 명단을 아래 칸에 붙여넣고 "명단 채우기"를 누릅니다. 이름이 맞는지 꼭 확인하세요.</li>
+    </ol>
+    <div class="copy" id="promptRow"></div>
+    <textarea id="pasteText" rows="6" placeholder="민트 궁성&#10;은퐁 치유성&#10;…&#10;(한 줄에 한 명, 1파티 5명 → 2파티 5명 순서)"></textarea>
+    <div class="copy">
+      <p class="status" id="pasteStatus"></p>
+      <button type="button" class="primary" id="btnPaste">명단 채우기</button>
+    </div>
+  </details>
   <div class="grid" id="inputs"></div>
 
   <div class="bar">
@@ -256,6 +276,26 @@ function textWave(st) {
     .filter(Boolean).join(' / ');
 }
 
+/* ---------- 명단 붙여넣기 ---------- */
+const AI_PROMPT = '이 아이온2 파티창 캡처에서 왼쪽 열(1파티) 위에서부터 5명, 오른쪽 열(2파티) 위에서부터 5명을 순서대로 적어 줘. '
+  + '한 줄에 한 명씩 "이름 직업" 형식으로 적고, 직업은 수호성, 검성, 살성, 권성, 궁성, 마도성, 정령성, 치유성, 호법성 중 하나로 적어 줘. 다른 설명은 붙이지 마.';
+const EDGE = /^[\s:,|/\-–—]+|[\s:,|/\-–—]+$/g;
+
+// 한 줄에 "이름 직업"(순서·구분 기호 자유). 번호·글머리표·"1파티" 머리줄은 건너뛴다.
+function parseRoster(text) {
+  const out = [];
+  for (const raw of String(text).split(/\r?\n/)) {
+    let line = raw.trim().replace(/^[1-2]\s*파티\s*[:.]?\s*/, '')
+      .replace(/^(?:[-*•·]\s*|\d{1,2}\s*(?:[.):]|번)\s*)/, '').trim();
+    if (!line || /^[1-2]$/.test(line)) continue;
+    const job = JOBS.find(j => line.includes(j)) || '';
+    if (job) { const at = line.lastIndexOf(job); line = line.slice(0, at) + ' ' + line.slice(at + job.length); }
+    const name = line.replace(/\(\s*\)|\[\s*\]/g, ' ').replace(EDGE, '').replace(/\s{2,}/g, ' ').trim();
+    if (name) out.push({ name, job });
+  }
+  return out;
+}
+
 /* ---------- 자체 시험 (?selftest=1) ---------- */
 function runSelfTest() {
   const out = [];
@@ -334,6 +374,13 @@ function runSelfTest() {
   eq('파도: 합계 9명이면 복사 없음', [textWave(st), computeWave(st).total], [null, 9]);
   st.waveCounts = [1, 4, 1, 4]; st.wave = [5, 1, 2, 3, 4, 0, 6, 7, 8, 9];
   eq('파도: 직접 바꾼 자리', textWave(st), '[파도] 1~2시 바바 / 4~5시 나나, 다다, 라라, 마마 / 7~8시 가가 / 10~11시 사사, 아아, 자자, 차차');
+
+  // 명단 붙여넣기
+  eq('명단: 번호·머리줄·구분 기호', parseRoster('1파티\n1. 민트 궁성\n2) 은퐁 - 치유성\n2파티\n홍권보[이스] 검성\n배술 (호법성)\n아노코\n'),
+    [{ name: '민트', job: '궁성' }, { name: '은퐁', job: '치유성' }, { name: '홍권보[이스]', job: '검성' }, { name: '배술', job: '호법성' }, { name: '아노코', job: '' }]);
+  eq('명단: 직업이 앞에 오는 줄', parseRoster('궁성 민트\n1파티 3번 다혜님: 치유성\n- 유나v / 마도성'),
+    [{ name: '민트', job: '궁성' }, { name: '다혜님', job: '치유성' }, { name: '유나v', job: '마도성' }]);
+  eq('명단: 빈 줄과 1·2 숫자줄 무시', parseRoster('\n1\n  \n가가 검성\n2\n나나 궁성'), [{ name: '가가', job: '검성' }, { name: '나나', job: '궁성' }]);
 
   st = base(); st.rows[2].name = ' ';
   eq('이름 하나 비움', compute(st, 0), { ok: false, missing: 1 });
@@ -672,6 +719,22 @@ document.getElementById('btnReset').addEventListener('click', () => {
   if (!confirm('입력한 내용을 모두 지울까요?')) return;
   const keep = { tab: st.tab, raid: st.raid, snowTab: st.snowTab };
   st = Object.assign(blankState(), keep); picked = null; snowPick = null; buildInputs(); render();
+});
+
+document.getElementById('promptRow').append(...copyRow(0, AI_PROMPT, 'AI 요청 문구 복사').childNodes);
+document.getElementById('btnPaste').addEventListener('click', () => {
+  const list = parseRoster(document.getElementById('pasteText').value), status = document.getElementById('pasteStatus');
+  if (!list.length) { status.className = 'status warn'; status.textContent = '읽을 수 있는 줄이 없습니다. 한 줄에 "이름 직업"으로 적어 주세요.'; return; }
+  list.slice(0, 10).forEach((m, i) => { st.rows[i].name = m.name; st.rows[i].job = m.job; });
+  st.reserve = [null, null]; touch(0); touch(1); touchSnow();
+  buildInputs(); render();
+  const notes = [`${Math.min(list.length, 10)}명을 1파티 1번부터 채웠습니다.`];
+  if (list.length < 10) notes.push(`${10 - list.length}명이 모자랍니다.`);
+  if (list.length > 10) notes.push(`11번째 줄부터 ${list.length - 10}줄은 넣지 않았습니다.`);
+  const noJob = list.slice(0, 10).filter(m => !m.job).length;
+  if (noJob) notes.push(`직업을 못 읽은 사람 ${noJob}명은 직접 골라 주세요.`);
+  status.className = 'status' + (notes.length > 1 ? ' warn' : '');
+  status.textContent = notes.join(' ');
 });
 
 if (new URLSearchParams(location.search).has('selftest')) {
