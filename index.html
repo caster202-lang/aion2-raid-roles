@@ -87,6 +87,9 @@ body.snow #inputs .status { display: none; }
 .names button { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .names button[aria-pressed=true] { box-shadow: inset 0 0 0 2px var(--accent); }
 svg .inner { stroke: var(--p1); } svg .outer { stroke: var(--one); }
+svg .orb { fill: #ff8a3d; stroke: #c4471b; stroke-width: 2; }
+svg .pillar { fill: var(--muted); stroke: var(--fg); stroke-width: 1.5; }
+svg .pillart { fill: var(--card); font-size: 12px; font-weight: 700; }
 svg .front { stroke: var(--front); fill: none; stroke-width: 5; stroke-linecap: round; }
 svg .back { stroke: var(--back); fill: none; stroke-width: 5; stroke-linecap: round; }
 svg .zonefill { fill: var(--line); opacity: .35; }
@@ -159,7 +162,7 @@ function blankState() {
   return {
     rows: Array.from({ length: 10 }, (_, g) => ({ name: '', job: '', two: g % 5 === 1 || g % 5 === 3 })), // 2번·4번 줄은 2줄 체크가 기본
     reserve: [null, null], dribble: [[null, null], [null, null]], slots: [null, null], tab: 'b1',
-    raid: 'mus', snowTab: 'wedge', wedge: null, waveCounts: [1, 4, 1, 4], wave: null
+    raid: 'mus', snowTab: 'n1', snow1: null, wedge: null, waveCounts: [1, 4, 1, 4], wave: null
   };
 }
 
@@ -258,6 +261,33 @@ function textWedge(st, side) {
   const base = side === 'inner' ? 0 : 4;
   return `[쐐기] ${side === 'inner' ? '내부' : '외부'} ` +
     CLOCK4.map((h, k) => `${h}시 ${st.rows[c.order[base + k]].name.trim()}`).join(' / ');
+}
+
+// 1네임드 order: [탱커, 서브탱, 나머지 8명(줄 순서)] — 탱커는 수호성 → 검성 순
+const TANK_JOBS = ['수호성', '검성'];
+function autoSnow1(rows) {
+  const cands = TANK_JOBS.flatMap(j => ALL.filter(i => rows[i].job === j));
+  const tanks = cands.slice(0, 2);
+  const short = tanks.length < 2;
+  ALL.forEach(i => { if (tanks.length < 2 && !tanks.includes(i)) tanks.push(i); });
+  return { order: tanks.concat(ALL.filter(i => !tanks.includes(i))), short };
+}
+
+function computeSnow1(st) {
+  const missing = namesMissing(st);
+  if (missing) return { ok: false, missing };
+  const auto = autoSnow1(st.rows), manual = isPerm(st.snow1, 10);
+  const order = manual ? st.snow1 : auto.order;
+  const rest = order.slice(2);
+  return { ok: true, order, short: manual ? false : auto.short, groups: [rest.filter(i => i < 5), rest.filter(i => i >= 5)] };
+}
+
+const SNOW1 = [{ route: '9시->12시', role: '탱커' }, { route: '3시->6시', role: '서브탱' }];
+function textSnow1(st, p) {
+  const c = computeSnow1(st);
+  if (!c.ok) return null;
+  const nm = g => st.rows[g].name.trim();
+  return `[1넴] ${SNOW1[p].route} ${c.groups[p].map(nm).join(', ')} / ${SNOW1[p].role} ${nm(c.order[p])}`;
 }
 
 function computeWave(st) {
@@ -366,6 +396,16 @@ function runSelfTest() {
   st.rows.forEach((r, i) => { r.name = ['가가', '나나', '다다', '라라', '마마', '바바', '사사', '아아', '자자', '차차'][i]; });
   st.wedge = [4, 2, 5, 7, 1, 3, 6, 8, 9, 0];
   eq('쐐기: 직접 바꾼 자리', textWedge(st, 'inner'), '[쐐기] 내부 3시 마마 / 6시 다다 / 9시 바바 / 12시 아아');
+  st = snow(['검성', '궁성', '수호성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '호법성']);
+  eq('설원 1넴: 수호성 둘이 탱커·서브탱', autoSnow1(st.rows), { order: [2, 5, 0, 1, 3, 4, 6, 7, 8, 9], short: false });
+  st = snow(['검성', '궁성', '살성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '검성']);
+  eq('설원 1넴: 수호성 하나면 검성이 서브탱', autoSnow1(st.rows), { order: [5, 0, 1, 2, 3, 4, 6, 7, 8, 9], short: false });
+  st = snow(['궁성', '궁성', '살성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '호법성']);
+  eq('설원 1넴: 후보 부족 → 첫 줄로 채우고 알림', autoSnow1(st.rows), { order: [5, 0, 1, 2, 3, 4, 6, 7, 8, 9], short: true });
+  st = snow(['검성', '궁성', '수호성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '호법성']);
+  st.rows.forEach((r, i) => { r.name = ['가가', '나나', '다다', '라라', '마마', '바바', '사사', '아아', '자자', '차차'][i]; });
+  eq('설원 1넴: 파티별 문구', [textSnow1(st, 0), textSnow1(st, 1)],
+    ['[1넴] 9시->12시 가가, 나나, 라라, 마마 / 탱커 다다', '[1넴] 3시->6시 사사, 아아, 자자, 차차 / 서브탱 바바']);
   st = blankState(); st.rows.forEach((r, i) => { r.name = ['가가', '나나', '다다', '라라', '마마', '바바', '사사', '아아', '자자', '차차'][i]; });
   eq('파도: 1-4-1-4', textWave(st), '[파도] 1~2시 가가 / 4~5시 나나, 다다, 라라, 마마 / 7~8시 바바 / 10~11시 사사, 아아, 자자, 차차');
   st.waveCounts = [3, 3, 3, 1];
@@ -421,8 +461,8 @@ function sv(tag, attrs, text) {
 }
 
 function touch(p) { st.dribble[p] = [null, null]; st.slots[p] = null; picked = null; }
-function touchSnow() { st.wedge = null; st.wave = null; snowPick = null; }
-let snowPick = null; // 설원 자리 바꾸기에서 먼저 누른 칸 {list: 'wedge'|'wave', k}
+function touchSnow() { st.snow1 = null; st.wedge = null; st.wave = null; snowPick = null; }
+let snowPick = null; // 설원 자리 바꾸기에서 먼저 누른 칸 {list: 'snow1'|'wedge'|'wave', k}
 
 function buildInputs() {
   const host = document.getElementById('inputs');
@@ -472,7 +512,7 @@ function copyRow(p, text, label, empty) {
 function renderResults(calc) {
   const host = document.getElementById('results');
   host.replaceChildren();
-  if (st.raid === 'snow') { (st.snowTab === 'wave' ? renderWave : renderWedge)(host); return; }
+  if (st.raid === 'snow') { ({ n1: renderSnow1, wave: renderWave }[st.snowTab] || renderWedge)(host); return; }
   [0, 1].forEach(p => {
     const c = calc[p];
     const card = el('section', { className: `card p${p + 1}` }, el('h2', {}, `${p + 1}파티`));
@@ -516,13 +556,29 @@ function snowButton(list, k, g, tag) {
 
 function pickSnow(list, k) {
   if (snowPick && snowPick.list === list && snowPick.k !== k) {
-    const next = (list === 'wedge' ? computeWedge(st) : computeWave(st)).order.slice();
+    const next = ({ wedge: computeWedge, wave: computeWave, snow1: computeSnow1 })[list](st).order.slice();
     [next[snowPick.k], next[k]] = [next[k], next[snowPick.k]];
     st[list] = next; snowPick = null;
   } else {
     snowPick = snowPick && snowPick.list === list && snowPick.k === k ? null : { list, k };
   }
   render();
+}
+
+function renderSnow1(host) {
+  const c = computeSnow1(st);
+  const empty = c.ok ? '' : `이름 10개를 모두 입력하면 문구가 나옵니다 (${c.missing}명 더 필요)`;
+  [0, 1].forEach(p => {
+    const card = el('section', { className: `card p${p + 1}` }, el('h2', {}, `${p + 1}파티 · ${SNOW1[p].route.replace('->', ' → ')}`));
+    if (c.ok) {
+      card.append(el('div', { className: 'names' }, snowButton('snow1', p, c.order[p], SNOW1[p].role),
+        ...c.groups[p].map(g => snowButton('snow1', c.order.indexOf(g), g, `${Math.floor(g / 5) + 1}파티`))));
+      if (c.groups[p].length !== 4) card.append(el('p', { className: 'status warn' }, `이동 인원이 ${c.groups[p].length}명입니다 (탱커·서브탱이 같은 파티)`));
+    }
+    card.append(copyRow(p, textSnow1(st, p), `${p + 1}파티 복사`, empty));
+    host.append(card);
+  });
+  if (c.ok && c.short) host.append(el('p', { className: 'status warn' }, '수호성·검성이 2명보다 적어 다른 직업을 탱커로 넣었습니다. 눌러서 바꿔 주세요.'));
 }
 
 function renderWedge(host) {
@@ -594,6 +650,16 @@ function drawBoss(svg, cx, cy) {
   arc(45, 135, 'back');
   svg.append(sv('circle', { cx, cy, r: 26, class: 'boss' }), sv('text', { x: cx, y: cy + 4, 'text-anchor': 'middle', class: 'bosst' }, '보스'));
 }
+// 비탄의 설원 기둥: 12시부터 시계방향으로 1~5번 징표
+const PILLARS = [12, 2, 5, 7, 10];
+function drawPillars(svg, cx, cy, r) {
+  PILLARS.forEach((h, i) => {
+    const a = (h % 12) * 30 - 90, x = cx + r * Math.cos(a * Math.PI / 180), y = cy + r * Math.sin(a * Math.PI / 180);
+    svg.append(sv('rect', { x: x - 9, y: y - 9, width: 18, height: 18, rx: 4, class: 'pillar' }),
+      sv('text', { x, y: y + 4, 'text-anchor': 'middle', class: 'pillart' }, String(i + 1)));
+  });
+}
+const pillarLegend = () => [' · ', el('span', { className: 'sw', style: 'background:var(--muted)' }), '기둥 번호(징표)'];
 const markerLegend = () => [' · ', el('span', { className: 'sw', style: 'background:var(--front)' }), '전방', el('span', { className: 'sw', style: 'background:var(--back)' }), '후방'];
 
 const DIAGONAL = { 1: -45, 5: 45, 7: 135, 11: 225 }; // 2줄 자리는 사용자 그림처럼 대각선에 둔다
@@ -659,6 +725,45 @@ function drawWedge() {
       ? { x: h === 3 ? x - 8 : x + 8, y: y - 18, 'text-anchor': h === 3 ? 'start' : 'end' } : placeLabel(h, x, y, 16);
     svg.append(sv('text', lab, `${side === 'inner' ? '내' : '외'} ${h}시 ${name}`));
   }));
+  drawPillars(svg, cx, cy, 139);
+  drawBoss(svg, cx, cy);
+  return svg;
+}
+
+function drawSnow1() {
+  const cx = 320, cy = 200, R = 170, c = computeSnow1(st), svg = sv('svg', { viewBox: '0 0 640 400', role: 'img', 'aria-label': '비탄의 설원 1네임드 배치도' });
+  const defs = sv('defs');
+  [1, 2].forEach(n => {
+    const m = sv('marker', { id: `arrow${n}`, viewBox: '0 0 10 10', refX: 7, refY: 5, markerWidth: 5, markerHeight: 5, orient: 'auto' });
+    m.append(sv('path', { d: 'M0 0L10 5L0 10z', class: `f${n}` }));
+    defs.append(m);
+  });
+  svg.append(defs, sv('circle', { cx, cy, r: R, class: 'dim' }));
+  svg.append(sv('line', { x1: cx - R, y1: cy, x2: cx + R, y2: cy, class: 'dim' }), sv('line', { x1: cx, y1: cy - R, x2: cx, y2: cy + R, class: 'dim' }));
+  const pt = (h, r) => { const a = ((h % 12) * 30 - 90) * Math.PI / 180; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
+  // 파티 이동: 9시 → 12시, 3시 → 6시 (시계방향)
+  [[9, 12, 1], [3, 6, 2]].forEach(([from, to, n]) => {
+    const [x1, y1] = pt(from, 140), [x2, y2] = pt(to - 0.6, 140);
+    svg.append(sv('path', { d: `M${x1} ${y1}A140 140 0 0 1 ${x2} ${y2}`, class: `path s${n}`, 'marker-end': `url(#arrow${n})` }));
+  });
+  // 온기구슬
+  CLOCK4.forEach(h => { const [x, y] = pt(h, 100); svg.append(sv('circle', { cx: x, cy: y, r: 9, class: 'orb' })); });
+  // 탱커(6·9시) · 서브탱(12·3시) 자리
+  [[9, 0], [6, 0], [12, 1], [3, 1]].forEach(([h, k]) => {
+    const [x, y] = pt(h, 58);
+    svg.append(sv('rect', { x: x - 10, y: y - 10, width: 20, height: 20, rx: 4, class: `mark s${k + 1}` }),
+      sv('text', { x, y: y + 4, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 700 }, k ? '서' : '탱'));
+  });
+  const nm = g => st.rows[g].name.trim();
+  // 파티 명단: 1파티는 9시 바깥, 2파티는 3시 바깥
+  [[0, cx - R - 12, 'end'], [1, cx + R + 12, 'start']].forEach(([p, x, anchor]) => {
+    const names = c.ok ? c.groups[p].map(nm) : [];
+    const y0 = cy - 8 - names.length * 8;
+    svg.append(sv('text', { x, y: y0, 'text-anchor': anchor, 'font-weight': 600 }, `${p + 1}파티 ${SNOW1[p].route.replace('->', '→')}`));
+    names.forEach((n, i) => svg.append(sv('text', { x, y: y0 + 18 + i * 17, 'text-anchor': anchor }, n)));
+  });
+  svg.append(sv('text', { x: 16, y: 26, 'font-weight': 600 }, `탱커 ${c.ok ? nm(c.order[0]) : '—'} (6시·9시)`));
+  svg.append(sv('text', { x: 624, y: 26, 'text-anchor': 'end', 'font-weight': 600 }, `서브탱 ${c.ok ? nm(c.order[1]) : '—'} (12시·3시)`));
   drawBoss(svg, cx, cy);
   return svg;
 }
@@ -668,15 +773,16 @@ function drawWave() {
   svg.append(sv('circle', { cx, cy, r: R, class: 'dim' }));
   svg.append(sv('line', { x1: cx - R, y1: cy, x2: cx + R, y2: cy, class: 'dim' }), sv('line', { x1: cx, y1: cy - R, x2: cx, y2: cy + R, class: 'dim' }));
   [[1, -1], [1, 1], [-1, 1], [-1, -1]].forEach(([sx, sy], z) => {
-    const x = cx + sx * 85, y = cy + sy * 85 - 20;
+    const x = cx + sx * 85, y = sy < 0 ? cy - 105 : cy + 40; // 아래 구역은 위로 올려 5·7시 기둥 번호를 가리지 않게
     svg.append(sv('text', { x, y, 'text-anchor': 'middle', 'font-weight': 600 }, `${WAVE_ZONES[z]} · ${st.waveCounts[z]}명`));
     (c.ok ? c.zones[z] : []).forEach((g, i) => svg.append(sv('text', { x, y: y + 20 + i * 17, 'text-anchor': 'middle' }, st.rows[g].name.trim())));
   });
+  drawPillars(svg, cx, cy, R);
   drawBoss(svg, cx, cy);
   return svg;
 }
 
-const SUBTABS = { mus: [['b1', '1네임드 드리블'], ['b2', '2네임드 신호등']], snow: [['wedge', '얼음쐐기'], ['wave', '파도패턴']] };
+const SUBTABS = { mus: [['b1', '1네임드 드리블'], ['b2', '2네임드 신호등']], snow: [['n1', '1네임드'], ['wedge', '얼음쐐기'], ['wave', '파도패턴']] };
 
 function renderTabs() {
   document.body.classList.toggle('snow', st.raid === 'snow');
@@ -705,6 +811,13 @@ function render() {
   });
   renderTabs();
   renderResults(calc);
+  if (st.raid === 'snow' && st.snowTab === 'n1') {
+    document.getElementById('tabHint').textContent = '탱커·서브탱을 누른 뒤 다른 사람을 누르면 서로 바뀝니다. 탱 브레스 순서: ① 6시 탱커 ② 12시 서브탱 ③ 9시 탱커 ④ 3시 서브탱';
+    document.getElementById('diagram').replaceChildren(drawSnow1());
+    document.getElementById('caption').replaceChildren(el('span', { className: 'sw', style: 'background:var(--p1)' }), '1파티·탱커',
+      el('span', { className: 'sw', style: 'background:var(--p2)' }), '2파티·서브탱', ' · ', el('span', { className: 'sw', style: 'background:#ff8a3d' }), '온기구슬', ...markerLegend());
+    return;
+  }
   if (st.raid === 'snow') {
     const wedge = st.snowTab !== 'wave';
     document.getElementById('tabHint').textContent = wedge
@@ -712,8 +825,8 @@ function render() {
       : '구역 인원은 +/−로 바꿉니다. 두 사람을 차례로 누르면 구역이 서로 바뀝니다.';
     document.getElementById('diagram').replaceChildren(wedge ? drawWedge() : drawWave());
     document.getElementById('caption').replaceChildren(...(wedge
-      ? [el('span', { className: 'sw', style: 'background:var(--p1)' }), '내부', el('span', { className: 'sw', style: 'background:var(--one)' }), '외부 (2-1 기준)', ...markerLegend()]
-      : ['구역마다 인원과 이름', ...markerLegend()]));
+      ? [el('span', { className: 'sw', style: 'background:var(--p1)' }), '내부', el('span', { className: 'sw', style: 'background:var(--one)' }), '외부 (2-1 기준)', ...pillarLegend(), ...markerLegend()]
+      : ['구역마다 인원과 이름', ...pillarLegend(), ...markerLegend()]));
     return;
   }
   const b1 = st.tab === 'b1';
