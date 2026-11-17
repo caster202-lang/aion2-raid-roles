@@ -100,6 +100,8 @@ svg .zonefill { fill: var(--line); opacity: .35; }
 .keyrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .keyrow input { flex: 1; min-width: 180px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--field); color: var(--fg); font: inherit; }
 .keyrow a { color: var(--accent); font-size: 13px; }
+.keyrow label { font-size: 13px; margin-right: 12px; }
+.keyrow + .keyrow { margin-top: 6px; }
 #shotZone { margin-top: 8px; padding: 16px; border: 2px dashed var(--line); border-radius: 8px; text-align: center; color: var(--muted); font-size: 13px; cursor: pointer; }
 #shotZone:focus, #shotZone.over { border-color: var(--accent); outline: none; }
 #shotZone img { display: block; max-width: 100%; max-height: 200px; margin: 0 auto 6px; }
@@ -126,15 +128,19 @@ svg .zonefill { fill: var(--line); opacity: .35; }
   </div>
   <details class="card paste" id="pasteBox">
     <summary>명단 붙여넣기 · 캡처를 AI에게 읽혀서 한 번에 채우기</summary>
-    <h3 class="paste-h">캡처 바로 읽기 (Gemini 무료 키)</h3>
+    <h3 class="paste-h">캡처 바로 읽기</h3>
+    <div class="keyrow" role="radiogroup" aria-label="읽을 AI">
+      <label><input type="radio" name="aiProv" value="gemini" checked> Gemini (무료 키)</label>
+      <label><input type="radio" name="aiProv" value="claude"> Claude (유료 키)</label>
+    </div>
     <div class="keyrow">
-      <input type="password" id="geminiKey" placeholder="Gemini API 키" autocomplete="off" aria-label="Gemini API 키">
+      <input type="password" id="geminiKey" placeholder="Gemini API 키" autocomplete="off" aria-label="API 키">
       <button type="button" id="btnKey">키 저장</button>
-      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">무료 키 받기</a>
+      <a id="keyLink" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">무료 키 받기</a>
     </div>
     <div id="shotZone" tabindex="0" role="button" aria-label="캡처 붙여넣기">게임에서 파티창을 캡처(Win+Shift+S)한 뒤 이 페이지에서 Ctrl+V — 이미지 파일을 끌어다 놓거나 눌러서 골라도 됩니다</div>
     <input type="file" id="shotFile" accept="image/*" hidden>
-    <p class="hint">키는 이 브라우저에만 저장되고, 캡처는 읽을 때 Google로 보내집니다. 무료 한도가 막히면 아래 방법을 쓰세요.</p>
+    <p class="hint" id="keyHint">키는 이 브라우저에만 저장되고, 캡처는 읽을 때 Google로 보내집니다. 무료 한도가 막히면 아래 방법을 쓰세요.</p>
     <h3 class="paste-h">또는 AI 앱으로 직접</h3>
     <ol class="steps">
       <li>게임에서 파티창을 캡처합니다.</li>
@@ -346,6 +352,11 @@ function geminiText(json) {
   return Array.isArray(parts) ? parts.map(x => x.text || '').join('') : '';
 }
 
+// Claude Messages 응답에서 text 블록만 뽑는다
+function claudeText(json) {
+  return json && Array.isArray(json.content) ? json.content.filter(b => b.type === 'text').map(b => b.text).join('') : '';
+}
+
 /* ---------- 자체 시험 (?selftest=1) ---------- */
 function runSelfTest() {
   const out = [];
@@ -437,6 +448,7 @@ function runSelfTest() {
     [{ name: '민트', job: '궁성' }, { name: '다혜님', job: '치유성' }, { name: '유나v', job: '마도성' }]);
   eq('Gemini 응답 글 뽑기', geminiText({ candidates: [{ content: { parts: [{ text: '민트 궁성\n' }, { text: '은퐁 치유성' }] } }] }), '민트 궁성\n은퐁 치유성');
   eq('Gemini 빈 응답', geminiText({ candidates: [] }), '');
+  eq('Claude 응답 글 뽑기', claudeText({ content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: '민트 궁성' }] }), '민트 궁성');
   eq('명단: 빈 줄과 1·2 숫자줄 무시', parseRoster('\n1\n  \n가가 검성\n2\n나나 궁성'), [{ name: '가가', job: '검성' }, { name: '나나', job: '궁성' }]);
 
   st = base(); st.rows[2].name = ' ';
@@ -868,14 +880,35 @@ function fillRoster() {
   status.textContent = notes.join(' ');
 }
 
-/* ---------- 캡처 바로 읽기 (Gemini) ---------- */
-const GEMINI_KEY = 'aion2-gemini-key';
-// 앞 모델이 붐비거나(503) 한도가 찼거나(429) 없어졌으면(404) 다음 모델로 넘어간다
+/* ---------- 캡처 바로 읽기 (Gemini 무료 / Claude 유료) ---------- */
+const PROVIDERS = {
+  gemini: { name: 'Gemini', store: 'aion2-gemini-key', placeholder: 'Gemini API 키', link: 'https://aistudio.google.com/apikey', linkText: '무료 키 받기',
+    hint: '키는 이 브라우저에만 저장되고, 캡처는 읽을 때 Google로 보내집니다. 무료 한도가 막히면 아래 방법을 쓰세요.' },
+  claude: { name: 'Claude', store: 'aion2-claude-key', placeholder: 'Claude API 키 (sk-ant-…)', link: 'https://platform.claude.com/settings/keys', linkText: '키 받기',
+    hint: '키는 이 브라우저에만 저장되고, 캡처는 읽을 때 Anthropic으로 보내집니다. 읽을 때마다 키 계정에 사용 요금이 나갑니다.' }
+};
+const PROV_KEY = 'aion2-ai-provider';
+const ATTEMPT_MS = 20000; // 모델 하나를 이만큼 기다려도 답이 없으면 다음으로
+// Gemini: 붐빔(503)·한도(429)·없음(404)·시간 초과면 다음 모델
 const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite'];
+const CLAUDE_MODEL = 'claude-haiku-5-5'; // 빠른 소형 모델
 const keyInput = document.getElementById('geminiKey'), zone = document.getElementById('shotZone');
-try { keyInput.value = localStorage.getItem(GEMINI_KEY) || ''; } catch (e) { /* 저장 불가 */ }
+const lsGet = k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* 저장 불가 */ } };
+let prov = PROVIDERS[lsGet(PROV_KEY)] ? lsGet(PROV_KEY) : 'gemini';
+function showProvider() {
+  const P = PROVIDERS[prov];
+  document.querySelectorAll('input[name=aiProv]').forEach(r => { r.checked = r.value === prov; });
+  keyInput.value = lsGet(P.store);
+  keyInput.placeholder = P.placeholder;
+  const link = document.getElementById('keyLink');
+  link.href = P.link; link.textContent = P.linkText;
+  document.getElementById('keyHint').textContent = P.hint;
+}
+document.querySelectorAll('input[name=aiProv]').forEach(r => r.addEventListener('change', () => { prov = r.value; lsSet(PROV_KEY, prov); showProvider(); }));
+showProvider();
 document.getElementById('btnKey').addEventListener('click', () => {
-  try { localStorage.setItem(GEMINI_KEY, keyInput.value.trim()); } catch (e) { /* 저장 불가 */ }
+  lsSet(PROVIDERS[prov].store, keyInput.value.trim());
   setPasteStatus(keyInput.value.trim() ? '키를 저장했습니다.' : '키를 지웠습니다.');
 });
 function setPasteStatus(text, warn) {
@@ -884,23 +917,63 @@ function setPasteStatus(text, warn) {
   status.textContent = text;
 }
 
+// 시간 제한을 둔 fetch. 걸린 시간(초)과 함께 돌려준다
+async function timedPost(url, headers, body) {
+  const ctl = new AbortController(), t0 = performance.now();
+  const timer = setTimeout(() => ctl.abort(), ATTEMPT_MS);
+  try {
+    const res = await fetch(url, { method: 'POST', headers, body, signal: ctl.signal });
+    const json = await res.json().catch(() => ({}));
+    return { res, json, sec: (performance.now() - t0) / 1000 };
+  } catch (err) {
+    if (err.name === 'AbortError') return { res: null, json: {}, sec: (performance.now() - t0) / 1000 };
+    throw err;
+  } finally { clearTimeout(timer); }
+}
+const fmt = sec => `${sec.toFixed(1)}초`;
+const STATUS_LABEL = { 404: '없음', 429: '한도 초과', 500: '서버 오류', 503: '붐빔' };
+class ReadError extends Error { constructor(msg, log) { super(msg); this.log = log; } }
+
 async function askGemini(key, mime, data) {
   const body = JSON.stringify({ contents: [{ parts: [{ text: AI_PROMPT }, { inline_data: { mime_type: mime, data } }] }] });
-  const seen = [];
+  const log = [], seen = [];
   let last = '';
   for (const model of GEMINI_MODELS) {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body });
-    const json = await res.json().catch(() => ({}));
-    if (res.ok) return geminiText(json);
+    const { res, json, sec } = await timedPost(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body);
+    if (!res) { log.push(`${model} 시간 초과 ${fmt(sec)}`); seen.push('timeout'); continue; }
+    if (res.ok) { log.push(`${model} 성공 ${fmt(sec)}`); return { text: geminiText(json), log }; }
     last = (json.error && json.error.message) || `HTTP ${res.status}`;
-    if (res.status === 400 || res.status === 401 || res.status === 403) throw new Error(`키를 확인해 주세요 (${last})`);
+    log.push(`${model} ${STATUS_LABEL[res.status] || res.status} ${fmt(sec)}`);
+    if (res.status === 400 || res.status === 401 || res.status === 403) throw new ReadError(`키를 확인해 주세요 (${last})`, log);
     seen.push(res.status);
     if (![404, 429, 500, 503].includes(res.status)) break;
   }
-  if (seen.length && seen.every(x => x === 429)) throw new Error('무료 사용 한도를 넘었습니다. 잠시 뒤에 다시 하거나 아래 방법을 쓰세요.');
-  if (seen.some(x => x === 503 || x === 500)) throw new Error('Google 서버가 붐벼서 읽지 못했습니다. 잠시 뒤 "다시 읽기"를 눌러 주세요.');
-  throw new Error(`읽기에 실패했습니다 (${last})`);
+  if (seen.length && seen.every(x => x === 429)) throw new ReadError('무료 사용 한도를 넘었습니다. 잠시 뒤에 다시 하거나 아래 방법을 쓰세요.', log);
+  if (seen.some(x => x === 503 || x === 500 || x === 'timeout')) throw new ReadError('Google 서버가 붐비거나 늦어서 읽지 못했습니다. 잠시 뒤 "다시 읽기"를 눌러 주세요.', log);
+  throw new ReadError(`읽기에 실패했습니다 (${last})`, log);
+}
+
+async function askClaude(key, mime, data) {
+  const body = JSON.stringify({
+    model: CLAUDE_MODEL, max_tokens: 1024,
+    thinking: { type: 'disabled' }, output_config: { effort: 'low' }, // 생각하기를 끄고 빨리 답하게
+    messages: [{ role: 'user', content: [
+      { type: 'image', source: { type: 'base64', media_type: mime, data } },
+      { type: 'text', text: AI_PROMPT }
+    ] }]
+  });
+  const { res, json, sec } = await timedPost('https://api.anthropic.com/v1/messages', {
+    'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2026-10-21',
+    'anthropic-dangerous-direct-browser-access': 'true' // 키를 쓰는 사람 본인 브라우저에서만 부른다
+  }, body);
+  const log = [`${CLAUDE_MODEL} ${res ? (res.ok ? '성공' : res.status) : '시간 초과'} ${fmt(sec)}`];
+  if (!res) throw new ReadError('Claude가 늦어서 읽지 못했습니다. "다시 읽기"를 눌러 주세요.', log);
+  const msg = (json.error && json.error.message) || `HTTP ${res.status}`;
+  if (res.status === 401 || res.status === 403) throw new ReadError(`키를 확인해 주세요 (${msg})`, log);
+  if (!res.ok) throw new ReadError(`읽기에 실패했습니다 (${msg})`, log);
+  if (json.stop_reason === 'refusal') throw new ReadError('Claude가 이 캡처를 읽지 않았습니다. 아래 방법을 쓰세요.', log);
+  return { text: claudeText(json), log };
 }
 
 let lastShot = null;
@@ -909,11 +982,11 @@ async function readShot(file) {
   if (!file || !file.type.startsWith('image/')) return;
   lastShot = file; document.getElementById('btnRetry').hidden = true;
   document.getElementById('pasteBox').open = true;
-  const key = keyInput.value.trim();
+  const P = PROVIDERS[prov], key = keyInput.value.trim();
   const url = URL.createObjectURL(file);
   zone.replaceChildren(el('img', { src: url, alt: '붙여넣은 캡처' }), '읽는 중…');
-  if (!key) { setPasteStatus('Gemini 키를 넣고 "키 저장"을 누른 뒤 다시 붙여넣어 주세요.', true); return; }
-  try { localStorage.setItem(GEMINI_KEY, key); } catch (e) { /* 저장 불가 */ }
+  if (!key) { setPasteStatus(`${P.name} 키를 넣고 "키 저장"을 누른 뒤 다시 붙여넣어 주세요.`, true); return; }
+  lsSet(P.store, key);
   try {
     const data = await new Promise((ok, bad) => {
       const r = new FileReader();
@@ -921,16 +994,19 @@ async function readShot(file) {
       r.onerror = bad;
       r.readAsDataURL(file);
     });
-    setPasteStatus('Gemini가 캡처를 읽는 중입니다…');
-    const text = await askGemini(key, file.type, data);
+    setPasteStatus(`${P.name}가 캡처를 읽는 중입니다…`);
+    const t0 = performance.now();
+    const { text, log } = await (prov === 'claude' ? askClaude : askGemini)(key, file.type, data);
     zone.lastChild.textContent = '다른 캡처를 붙여넣으면 다시 읽습니다';
-    if (!text.trim()) throw new Error('읽은 글이 없습니다.');
+    if (!text.trim()) throw new ReadError('읽은 글이 없습니다.', log);
     document.getElementById('pasteText').value = text.trim();
     fillRoster();
+    const status = document.getElementById('pasteStatus');
+    status.textContent += ` (총 ${fmt((performance.now() - t0) / 1000)}: ${log.join(' → ')})`;
   } catch (err) {
     zone.lastChild.textContent = '다시 붙여넣거나 "다시 읽기"를 눌러 주세요';
     document.getElementById('btnRetry').hidden = false;
-    setPasteStatus(err.message || String(err), true);
+    setPasteStatus((err.message || String(err)) + (err.log && err.log.length ? ` (${err.log.join(' → ')})` : ''), true);
   }
 }
 
