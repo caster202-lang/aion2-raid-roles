@@ -205,7 +205,7 @@ function compute(st, p) {
 function text1(st, p) {
   const c = compute(st, p);
   if (!c.ok) return null;
-  return '[1넴] ' + c.dribblers.map((i, k) => `${PARTY[p].routes[k][0]}시→${PARTY[p].routes[k][1]}시 ${c.rows[i].name.trim()}`).join(' / ');
+  return '[1넴] ' + c.dribblers.map((i, k) => `${PARTY[p].routes[k][0]}시->${PARTY[p].routes[k][1]}시 ${c.rows[i].name.trim()}`).join(' / ');
 }
 
 function text2(st, p) {
@@ -310,8 +310,8 @@ function runSelfTest() {
   };
   const rowsOf = (jobs, two) => jobs.map((job, i) => ({ name: 'n' + i, job, two: !!two[i] }));
   let st = base();
-  eq('1넴 1파티', text1(st, 0), '[1넴] 3시→3시 가가 / 9시→12시 다다');
-  eq('1넴 2파티', text1(st, 1), '[1넴] 12시→9시 바바 / 6시→6시 아아');
+  eq('1넴 1파티', text1(st, 0), '[1넴] 3시->3시 가가 / 9시->12시 다다');
+  eq('1넴 2파티', text1(st, 1), '[1넴] 12시->9시 바바 / 6시->6시 아아');
   eq('2넴 1파티', text2(st, 0), '[2넴] 12시 가가 / 11시 나나 / 9시 다다 / 7시 라라 / 깍두기 마마');
   eq('2넴 2파티', text2(st, 1), '[2넴] 6시 사사 / 5시 바바 / 3시 자자 / 1시 아아 / 깍두기 차차');
   const melee = ['검성', '검성', '검성', '검성', '검성'];
@@ -334,10 +334,10 @@ function runSelfTest() {
   eq('드리블: 원거리 없는 조', autoDribbler(rowsOf(['검성', '살성', '', '', ''], []), [0, 1]), 0);
   eq('드리블: 정령성과 궁성', autoDribbler(rowsOf(['정령성', '궁성', '', '', ''], []), [0, 1]), 1);
   st = base(); st.reserve[0] = 0;
-  eq('깍두기 직접 지정 → 1넴', text1(st, 0), '[1넴] 3시→3시 다다 / 9시→12시 라라');
+  eq('깍두기 직접 지정 → 1넴', text1(st, 0), '[1넴] 3시->3시 다다 / 9시->12시 라라');
   eq('깍두기 직접 지정 → 2넴', text2(st, 0), '[2넴] 12시 다다 / 11시 나나 / 9시 마마 / 7시 라라 / 깍두기 가가');
   st = base(); st.dribble[0][0] = 1;
-  eq('드리블 직접 지정', text1(st, 0), '[1넴] 3시→3시 나나 / 9시→12시 다다');
+  eq('드리블 직접 지정', text1(st, 0), '[1넴] 3시->3시 나나 / 9시->12시 다다');
   st = base(); st.slots[0] = [1, 0, 2, 3];
   eq('자리 직접 지정', text2(st, 0), '[2넴] 12시 나나 / 11시 가가 / 9시 다다 / 7시 라라 / 깍두기 마마');
   eq('2줄 체크 기본값: 파티별 2번·4번', blankState().rows.map(r => r.two), [false, true, false, true, false, false, true, false, true, false]);
