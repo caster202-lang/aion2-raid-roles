@@ -96,6 +96,13 @@ svg .zonefill { fill: var(--line); opacity: .35; }
 .paste textarea { width: 100%; margin-top: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 6px;
   background: var(--field); color: var(--fg); font: inherit; resize: vertical; }
 .paste .copy .status { flex: 1; margin: 0; }
+.paste-h { font-size: 14px; margin: 12px 0 6px; }
+.keyrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.keyrow input { flex: 1; min-width: 180px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--field); color: var(--fg); font: inherit; }
+.keyrow a { color: var(--accent); font-size: 13px; }
+#shotZone { margin-top: 8px; padding: 16px; border: 2px dashed var(--line); border-radius: 8px; text-align: center; color: var(--muted); font-size: 13px; cursor: pointer; }
+#shotZone:focus, #shotZone.over { border-color: var(--accent); outline: none; }
+#shotZone img { display: block; max-width: 100%; max-height: 200px; margin: 0 auto 6px; }
 #selftest li.fail { color: var(--p1); font-weight: 600; }
 </style>
 </head>
@@ -119,6 +126,16 @@ svg .zonefill { fill: var(--line); opacity: .35; }
   </div>
   <details class="card paste" id="pasteBox">
     <summary>명단 붙여넣기 · 캡처를 AI에게 읽혀서 한 번에 채우기</summary>
+    <h3 class="paste-h">캡처 바로 읽기 (Gemini 무료 키)</h3>
+    <div class="keyrow">
+      <input type="password" id="geminiKey" placeholder="Gemini API 키" autocomplete="off" aria-label="Gemini API 키">
+      <button type="button" id="btnKey">키 저장</button>
+      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">무료 키 받기</a>
+    </div>
+    <div id="shotZone" tabindex="0" role="button" aria-label="캡처 붙여넣기">게임에서 파티창을 캡처(Win+Shift+S)한 뒤 이 페이지에서 Ctrl+V — 이미지 파일을 끌어다 놓거나 눌러서 골라도 됩니다</div>
+    <input type="file" id="shotFile" accept="image/*" hidden>
+    <p class="hint">키는 이 브라우저에만 저장되고, 캡처는 읽을 때 Google로 보내집니다. 무료 한도가 막히면 아래 방법을 쓰세요.</p>
+    <h3 class="paste-h">또는 AI 앱으로 직접</h3>
     <ol class="steps">
       <li>게임에서 파티창을 캡처합니다.</li>
       <li>ChatGPT·Claude 같은 AI 앱에 캡처를 올리고, 아래 요청 문구를 복사해 같이 보냅니다.</li>
@@ -160,7 +177,7 @@ function blankState() {
   return {
     rows: Array.from({ length: 10 }, (_, g) => ({ name: '', job: '', two: g % 5 === 1 || g % 5 === 3 })), // 2번·4번 줄은 2줄 체크가 기본
     reserve: [null, null], dribble: [[null, null], [null, null]], slots: [null, null], tab: 'b1',
-    raid: 'mus', snowTab: 'n1', snow1: null, wedge: null, wave: null
+    raid: 'mus', snowTab: 'n1', snow1: null, wedge: null
   };
 }
 
@@ -222,8 +239,8 @@ function text2(st, p) {
 const INNER_JOBS = ['수호성', '검성', '살성', '권성', '호법성'];
 const OUTER_JOBS = ['궁성', '마도성', '정령성'];
 const CLOCK4 = [3, 6, 9, 12];
-const WAVE_ZONES = ['1~2시', '4~5시', '7~8시', '10~11시'];
-const WAVE_COUNTS = [1, 4, 1, 4]; // 파도패턴은 1-4-1-4 고정
+// 파도패턴: 1시 메인탱커 · 5시 2파티 · 7시 부탱 · 11시 1파티 (탱커·부탱은 1네임드 배정과 같다)
+const WAVE_ZONES = ['1시 메인탱커', '5시 2파티', '7시 부탱', '11시 1파티'];
 const ALL = [...Array(10).keys()];
 
 function namesMissing(st) { return st.rows.filter(r => !r.name.trim()).length; }
@@ -291,10 +308,8 @@ function textSnow1(st, p) {
 function computeWave(st) {
   const missing = namesMissing(st);
   if (missing) return { ok: false, missing };
-  const order = isPerm(st.wave, 10) ? st.wave : ALL.slice();
-  let k = 0;
-  const zones = WAVE_COUNTS.map(n => order.slice(k, k += n));
-  return { ok: true, order, zones };
+  const c = computeSnow1(st);
+  return { ok: true, order: c.order, zones: [[c.order[0]], c.groups[1], [c.order[1]], c.groups[0]] };
 }
 
 function textWave(st) {
@@ -322,6 +337,12 @@ function parseRoster(text) {
     if (name) out.push({ name, job });
   }
   return out;
+}
+
+// Gemini generateContent 응답에서 글만 뽑는다
+function geminiText(json) {
+  const parts = json && json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts;
+  return Array.isArray(parts) ? parts.map(x => x.text || '').join('') : '';
 }
 
 /* ---------- 자체 시험 (?selftest=1) ---------- */
@@ -403,15 +424,18 @@ function runSelfTest() {
   eq('설원 1넴: 파티별 문구', [textSnow1(st, 0), textSnow1(st, 1)],
     ['[1넴] 9시->12시 가가, 나나, 라라, 마마 / 탱커 다다', '[1넴] 3시->6시 사사, 아아, 자자, 차차 / 서브탱 바바']);
   st = blankState(); st.rows.forEach((r, i) => { r.name = ['가가', '나나', '다다', '라라', '마마', '바바', '사사', '아아', '자자', '차차'][i]; });
-  eq('파도: 1-4-1-4', textWave(st), '[파도] 1~2시 가가 / 4~5시 나나, 다다, 라라, 마마 / 7~8시 바바 / 10~11시 사사, 아아, 자자, 차차');
-  st.wave = [5, 1, 2, 3, 4, 0, 6, 7, 8, 9];
-  eq('파도: 직접 바꾼 자리', textWave(st), '[파도] 1~2시 바바 / 4~5시 나나, 다다, 라라, 마마 / 7~8시 가가 / 10~11시 사사, 아아, 자자, 차차');
+  st.rows.forEach((r, i) => { r.job = ['검성', '궁성', '수호성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '호법성'][i]; });
+  eq('파도: 탱커·부탱·파티', textWave(st), '[파도] 1시 메인탱커 다다 / 5시 2파티 사사, 아아, 자자, 차차 / 7시 부탱 바바 / 11시 1파티 가가, 나나, 라라, 마마');
+  st.snow1 = [5, 2, 0, 1, 3, 4, 6, 7, 8, 9];
+  eq('파도: 1넴에서 바꾼 탱커를 따름', textWave(st), '[파도] 1시 메인탱커 바바 / 5시 2파티 사사, 아아, 자자, 차차 / 7시 부탱 다다 / 11시 1파티 가가, 나나, 라라, 마마');
 
   // 명단 붙여넣기
   eq('명단: 번호·머리줄·구분 기호', parseRoster('1파티\n1. 민트 궁성\n2) 은퐁 - 치유성\n2파티\n홍권보[이스] 검성\n배술 (호법성)\n아노코\n'),
     [{ name: '민트', job: '궁성' }, { name: '은퐁', job: '치유성' }, { name: '홍권보[이스]', job: '검성' }, { name: '배술', job: '호법성' }, { name: '아노코', job: '' }]);
   eq('명단: 직업이 앞에 오는 줄', parseRoster('궁성 민트\n1파티 3번 다혜님: 치유성\n- 유나v / 마도성'),
     [{ name: '민트', job: '궁성' }, { name: '다혜님', job: '치유성' }, { name: '유나v', job: '마도성' }]);
+  eq('Gemini 응답 글 뽑기', geminiText({ candidates: [{ content: { parts: [{ text: '민트 궁성\n' }, { text: '은퐁 치유성' }] } }] }), '민트 궁성\n은퐁 치유성');
+  eq('Gemini 빈 응답', geminiText({ candidates: [] }), '');
   eq('명단: 빈 줄과 1·2 숫자줄 무시', parseRoster('\n1\n  \n가가 검성\n2\n나나 궁성'), [{ name: '가가', job: '검성' }, { name: '나나', job: '궁성' }]);
 
   st = base(); st.rows[2].name = ' ';
@@ -451,8 +475,8 @@ function sv(tag, attrs, text) {
 }
 
 function touch(p) { st.dribble[p] = [null, null]; st.slots[p] = null; picked = null; }
-function touchSnow() { st.snow1 = null; st.wedge = null; st.wave = null; snowPick = null; }
-let snowPick = null; // 설원 자리 바꾸기에서 먼저 누른 칸 {list: 'snow1'|'wedge'|'wave', k}
+function touchSnow() { st.snow1 = null; st.wedge = null; snowPick = null; }
+let snowPick = null; // 설원 자리 바꾸기에서 먼저 누른 칸 {list: 'snow1'|'wedge', k}
 
 function buildInputs() {
   const host = document.getElementById('inputs');
@@ -548,7 +572,7 @@ function snowButton(list, k, g, tag) {
 
 function pickSnow(list, k) {
   if (snowPick && snowPick.list === list && snowPick.k !== k) {
-    const next = ({ wedge: computeWedge, wave: computeWave, snow1: computeSnow1 })[list](st).order.slice();
+    const next = ({ wedge: computeWedge, snow1: computeSnow1 })[list](st).order.slice();
     [next[snowPick.k], next[k]] = [next[k], next[snowPick.k]];
     st[list] = next; snowPick = null;
   } else {
@@ -594,10 +618,9 @@ function renderWedge(host) {
 function renderWave(host) {
   const c = computeWave(st);
   const card = el('section', { className: 'card' }, el('h2', {}, '파도패턴'));
-  let k = 0;
   WAVE_ZONES.forEach((zone, z) => {
-    const box = el('div', { className: 'zone' }, el('div', { className: 'zone-head' }, el('strong', {}, zone), el('span', {}, `${WAVE_COUNTS[z]}명`)));
-    if (c.ok) box.append(el('div', { className: 'names' }, ...c.zones[z].map(g => snowButton('wave', k++, g, ''))));
+    const box = el('div', { className: 'zone' }, el('div', { className: 'zone-head' }, el('strong', {}, zone), c.ok ? el('span', {}, `${c.zones[z].length}명`) : ''));
+    if (c.ok) box.append(el('div', { className: 'names' }, ...c.zones[z].map(g => snowButton('snow1', c.order.indexOf(g), g, ''))));
     card.append(box);
   });
   const empty = c.ok ? '' : `이름 10개를 모두 입력하면 문구가 나옵니다 (${c.missing}명 더 필요)`;
@@ -751,7 +774,7 @@ function drawWave() {
   svg.append(sv('line', { x1: cx - R, y1: cy, x2: cx + R, y2: cy, class: 'dim' }), sv('line', { x1: cx, y1: cy - R, x2: cx, y2: cy + R, class: 'dim' }));
   [[1, -1], [1, 1], [-1, 1], [-1, -1]].forEach(([sx, sy], z) => {
     const x = cx + sx * 85, y = sy < 0 ? cy - 105 : cy + 40; // 아래 구역은 위로 올려 5·7시 기둥 번호를 가리지 않게
-    svg.append(sv('text', { x, y, 'text-anchor': 'middle', 'font-weight': 600 }, `${WAVE_ZONES[z]} · ${WAVE_COUNTS[z]}명`));
+    svg.append(sv('text', { x, y, 'text-anchor': 'middle', 'font-weight': 600 }, WAVE_ZONES[z]));
     (c.ok ? c.zones[z] : []).forEach((g, i) => svg.append(sv('text', { x, y: y + 20 + i * 17, 'text-anchor': 'middle' }, st.rows[g].name.trim())));
   });
   drawPillars(svg, cx, cy, R);
@@ -799,7 +822,7 @@ function render() {
     const wedge = st.snowTab !== 'wave';
     document.getElementById('tabHint').textContent = wedge
       ? '두 사람을 차례로 누르면 자리가 서로 바뀝니다(서브 포함). 외부는 2-2(50%)에서 한 시간 앞 자리(2·5·8·11시)로 옮깁니다.'
-      : '1-4-1-4 배치입니다. 두 사람을 차례로 누르면 구역이 서로 바뀝니다.';
+      : '메인탱커·부탱은 1네임드와 같은 사람입니다. 메인탱커나 부탱을 누른 뒤 다른 사람을 누르면 서로 바뀝니다.';
     document.getElementById('diagram').replaceChildren(wedge ? drawWedge() : drawWave());
     document.getElementById('caption').replaceChildren(...(wedge
       ? [el('span', { className: 'sw', style: 'background:var(--p1)' }), '내부', el('span', { className: 'sw', style: 'background:var(--one)' }), '외부 (2-1 기준)', ...pillarLegend(), ...markerLegend()]
@@ -828,7 +851,8 @@ document.getElementById('btnReset').addEventListener('click', () => {
 });
 
 document.getElementById('promptRow').append(...copyRow(0, AI_PROMPT, 'AI 요청 문구 복사').childNodes);
-document.getElementById('btnPaste').addEventListener('click', () => {
+document.getElementById('btnPaste').addEventListener('click', fillRoster);
+function fillRoster() {
   const list = parseRoster(document.getElementById('pasteText').value), status = document.getElementById('pasteStatus');
   if (!list.length) { status.className = 'status warn'; status.textContent = '읽을 수 있는 줄이 없습니다. 한 줄에 "이름 직업"으로 적어 주세요.'; return; }
   list.slice(0, 10).forEach((m, i) => { st.rows[i].name = m.name; st.rows[i].job = m.job; });
@@ -841,7 +865,79 @@ document.getElementById('btnPaste').addEventListener('click', () => {
   if (noJob) notes.push(`직업을 못 읽은 사람 ${noJob}명은 직접 골라 주세요.`);
   status.className = 'status' + (notes.length > 1 ? ' warn' : '');
   status.textContent = notes.join(' ');
+}
+
+/* ---------- 캡처 바로 읽기 (Gemini) ---------- */
+const GEMINI_KEY = 'aion2-gemini-key';
+const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-2.5-flash']; // 앞 이름이 없어졌으면 다음 이름으로
+const keyInput = document.getElementById('geminiKey'), zone = document.getElementById('shotZone');
+try { keyInput.value = localStorage.getItem(GEMINI_KEY) || ''; } catch (e) { /* 저장 불가 */ }
+document.getElementById('btnKey').addEventListener('click', () => {
+  try { localStorage.setItem(GEMINI_KEY, keyInput.value.trim()); } catch (e) { /* 저장 불가 */ }
+  setPasteStatus(keyInput.value.trim() ? '키를 저장했습니다.' : '키를 지웠습니다.');
 });
+function setPasteStatus(text, warn) {
+  const status = document.getElementById('pasteStatus');
+  status.className = 'status' + (warn ? ' warn' : '');
+  status.textContent = text;
+}
+
+async function askGemini(key, mime, data) {
+  const body = JSON.stringify({ contents: [{ parts: [{ text: AI_PROMPT }, { inline_data: { mime_type: mime, data } }] }] });
+  let last = '';
+  for (const model of GEMINI_MODELS) {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) return geminiText(json);
+    last = (json.error && json.error.message) || `HTTP ${res.status}`;
+    if (res.status === 429) throw new Error('무료 사용 한도를 넘었습니다. 잠시 뒤에 다시 하거나 아래 방법을 쓰세요.');
+    if (res.status === 400 || res.status === 401 || res.status === 403) throw new Error(`키를 확인해 주세요 (${last})`);
+    if (res.status !== 404) break;
+  }
+  throw new Error(`읽기에 실패했습니다 (${last})`);
+}
+
+async function readShot(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  document.getElementById('pasteBox').open = true;
+  const key = keyInput.value.trim();
+  const url = URL.createObjectURL(file);
+  zone.replaceChildren(el('img', { src: url, alt: '붙여넣은 캡처' }), '읽는 중…');
+  if (!key) { setPasteStatus('Gemini 키를 넣고 "키 저장"을 누른 뒤 다시 붙여넣어 주세요.', true); return; }
+  try { localStorage.setItem(GEMINI_KEY, key); } catch (e) { /* 저장 불가 */ }
+  try {
+    const data = await new Promise((ok, bad) => {
+      const r = new FileReader();
+      r.onload = () => ok(String(r.result).split(',')[1]);
+      r.onerror = bad;
+      r.readAsDataURL(file);
+    });
+    setPasteStatus('Gemini가 캡처를 읽는 중입니다…');
+    const text = await askGemini(key, file.type, data);
+    zone.lastChild.textContent = '다른 캡처를 붙여넣으면 다시 읽습니다';
+    if (!text.trim()) throw new Error('읽은 글이 없습니다.');
+    document.getElementById('pasteText').value = text.trim();
+    fillRoster();
+  } catch (err) {
+    zone.lastChild.textContent = '다시 붙여넣어 주세요';
+    setPasteStatus(err.message || String(err), true);
+  }
+}
+
+document.addEventListener('paste', e => {
+  const item = [...(e.clipboardData ? e.clipboardData.items : [])].find(i => i.type.startsWith('image/'));
+  if (!item) return; // 글 붙여넣기는 그대로 둔다
+  e.preventDefault();
+  readShot(item.getAsFile());
+});
+const shotFile = document.getElementById('shotFile');
+zone.addEventListener('click', () => shotFile.click());
+zone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); shotFile.click(); } });
+shotFile.addEventListener('change', () => { readShot(shotFile.files[0]); shotFile.value = ''; });
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('over'); readShot(e.dataTransfer.files[0]); });
 
 if (new URLSearchParams(location.search).has('selftest')) {
   const results = runSelfTest(), passed = results.filter(r => r.pass).length;
