@@ -377,6 +377,20 @@ function textWave(st) {
 /* ---------- 명단 붙여넣기 ---------- */
 const AI_PROMPT = '이 아이온2 파티창 캡처에서 왼쪽 열(1파티) 위에서부터 5명, 오른쪽 열(2파티) 위에서부터 5명을 순서대로 적어 줘. '
   + '한 줄에 한 명씩 "이름 직업" 형식으로 적고, 직업은 수호성, 검성, 살성, 권성, 궁성, 마도성, 정령성, 치유성, 호법성 중 하나로 적어 줘. 다른 설명은 붙이지 마.';
+// 캡처 읽기 때 견본 이미지(job-icons.png)를 먼저 보내 아이콘을 비교하게 한다. 위에서부터 이 순서다.
+const ICON_ORDER = ['살성', '마도성', '궁성', '권성', '정령성', '검성', '수호성', '호법성', '치유성'];
+const REF_PROMPT = `첫 번째 이미지는 아이온2 직업 아이콘 견본이다. 위에서부터 ${ICON_ORDER.join(', ')} 순서이고 아이콘 오른쪽에 직업 이름이 적혀 있다. `
+  + '두 번째 이미지는 파티창 캡처다. 캡처의 직업은 줄마다 이름 왼쪽 아이콘을 견본 아이콘과 모양·색까지 비교해서 가장 닮은 직업으로 고른다. 색이 비슷한 직업(마도성·정령성, 살성·궁성, 호법성·치유성)은 모양으로 구분한다.';
+// 견본이 있으면 [견본 설명, 견본, 캡처, 요청], 없으면 [요청, 캡처] (Gemini parts 형식)
+function geminiParts(ref, mime, data) {
+  return ref ? [{ text: REF_PROMPT }, { inline_data: { mime_type: 'image/png', data: ref } }, { inline_data: { mime_type: mime, data } }, { text: AI_PROMPT }]
+    : [{ text: AI_PROMPT }, { inline_data: { mime_type: mime, data } }];
+}
+function claudeContent(ref, mime, data) {
+  const img = (m, d) => ({ type: 'image', source: { type: 'base64', media_type: m, data: d } });
+  return ref ? [{ type: 'text', text: REF_PROMPT }, img('image/png', ref), img(mime, data), { type: 'text', text: AI_PROMPT }]
+    : [img(mime, data), { type: 'text', text: AI_PROMPT }];
+}
 const EDGE = /^[\s:,|/\-–—]+|[\s:,|/\-–—]+$/g;
 
 // 한 줄에 "이름 직업"(순서·구분 기호 자유). 번호·글머리표·"1파티" 머리줄은 건너뛴다.
@@ -393,6 +407,18 @@ function parseRoster(text) {
     if (name) out.push({ name, job });
   }
   return out;
+}
+
+// 직접 고친 직업 기억 {이름: 직업}을 명단에 덮어쓴다 → {list, changed}
+function applyJobMemory(list, mem) {
+  let changed = 0;
+  const out = list.map(m => {
+    const job = mem && mem[m.name];
+    if (!job || job === m.job) return m;
+    changed++;
+    return { name: m.name, job };
+  });
+  return { list: out, changed };
 }
 
 // Gemini generateContent 응답에서 글만 뽑는다
@@ -598,8 +624,14 @@ function runSelfTest() {
   eq('명단: 직업이 앞에 오는 줄', parseRoster('궁성 민트\n1파티 3번 다혜님: 치유성\n- 유나v / 마도성'),
     [{ name: '민트', job: '궁성' }, { name: '다혜님', job: '치유성' }, { name: '유나v', job: '마도성' }]);
   eq('Gemini 응답 글 뽑기', geminiText({ candidates: [{ content: { parts: [{ text: '민트 궁성\n' }, { text: '은퐁 치유성' }] } }] }), '민트 궁성\n은퐁 치유성');
+  eq('견본 있으면 견본 → 캡처 순서', geminiParts('REF', 'image/jpeg', 'SHOT').map(x => x.text ? 'text' : x.inline_data.data), ['text', 'REF', 'SHOT', 'text']);
+  eq('견본 없으면 예전 그대로', geminiParts(null, 'image/png', 'SHOT').map(x => x.text ? 'text' : x.inline_data.data), ['text', 'SHOT']);
+  eq('Claude도 견본 → 캡처 순서', claudeContent('REF', 'image/jpeg', 'SHOT').map(x => x.type === 'image' ? x.source.data : 'text'), ['text', 'REF', 'SHOT', 'text']);
   eq('Gemini 빈 응답', geminiText({ candidates: [] }), '');
   eq('Claude 응답 글 뽑기', claudeText({ content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: '민트 궁성' }] }), '민트 궁성');
+  eq('기억한 직업 덮어쓰기', applyJobMemory([{ name: '가가', job: '살성' }, { name: '나나', job: '궁성' }, { name: '다다', job: '' }], { 가가: '마도성', 다다: '검성', 라라: '궁성' }),
+    { list: [{ name: '가가', job: '마도성' }, { name: '나나', job: '궁성' }, { name: '다다', job: '검성' }], changed: 2 });
+  eq('기억 없음', applyJobMemory([{ name: '가가', job: '살성' }], {}).changed, 0);
   eq('명단: [서버] 빼기', parseRoster('정령숙[젠카] 정령성\n마도성[크로] 마도성\n[이스]'), [{ name: '정령숙', job: '정령성' }, { name: '마도성', job: '마도성' }]);
   eq('명단: 빈 줄과 1·2 숫자줄 무시', parseRoster('\n1\n  \n가가 검성\n2\n나나 궁성'), [{ name: '가가', job: '검성' }, { name: '나나', job: '궁성' }]);
 
@@ -647,6 +679,15 @@ function load() {
   return blankState();
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { /* 저장 불가 환경 */ } }
+const MEM_KEY = 'aion2-job-memory'; // 직업 드롭다운으로 직접 고른 직업 {이름: 직업}
+function loadJobMemory() { try { return JSON.parse(localStorage.getItem(MEM_KEY)) || {}; } catch (e) { return {}; } }
+function rememberJob(name, job) {
+  name = name.trim();
+  if (!name) return;
+  const mem = loadJobMemory();
+  if (job) mem[name] = job; else delete mem[name];
+  try { localStorage.setItem(MEM_KEY, JSON.stringify(mem)); } catch (e) { /* 저장 불가 */ }
+}
 
 function el(tag, props, ...kids) {
   const node = document.createElement(tag);
@@ -678,7 +719,7 @@ function buildInputs() {
       const name = el('input', { type: 'text', value: r.name, placeholder: '이름', maxLength: 20, autocomplete: 'off',
         on: { input: e => { r.name = e.target.value; touch(p); touchSnow(); render(); } } });
       name.setAttribute('aria-label', `${p + 1}파티 ${i + 1}번 이름`);
-      const job = el('select', { on: { change: e => { r.job = e.target.value; touch(p); touchSnow(); render(); } } },
+      const job = el('select', { on: { change: e => { r.job = e.target.value; rememberJob(r.name, r.job); touch(p); touchSnow(); render(); } } },
         el('option', { value: '' }, '직업'), ...JOBS.map(j => el('option', { value: j }, j)));
       job.value = r.job;
       job.setAttribute('aria-label', `${p + 1}파티 ${i + 1}번 직업`);
@@ -1059,7 +1100,8 @@ document.getElementById('btnReset').addEventListener('click', () => {
 document.getElementById('promptRow').append(...copyRow(0, AI_PROMPT, 'AI 요청 문구 복사').childNodes);
 document.getElementById('btnPaste').addEventListener('click', fillRoster);
 function fillRoster() {
-  const list = parseRoster(document.getElementById('pasteText').value), status = document.getElementById('pasteStatus');
+  const status = document.getElementById('pasteStatus');
+  const { list, changed } = applyJobMemory(parseRoster(document.getElementById('pasteText').value), loadJobMemory());
   if (!list.length) { status.className = 'status warn'; status.textContent = '읽을 수 있는 줄이 없습니다. 한 줄에 "이름 직업"으로 적어 주세요.'; return; }
   list.slice(0, 10).forEach((m, i) => { st.rows[i].name = m.name; st.rows[i].job = m.job; });
   st.reserve = [null, null]; touch(0); touch(1); touchSnow();
@@ -1069,7 +1111,9 @@ function fillRoster() {
   if (list.length > 10) notes.push(`11번째 줄부터 ${list.length - 10}줄은 넣지 않았습니다.`);
   const noJob = list.slice(0, 10).filter(m => !m.job).length;
   if (noJob) notes.push(`직업을 못 읽은 사람 ${noJob}명은 직접 골라 주세요.`);
-  status.className = 'status' + (notes.length > 1 ? ' warn' : '');
+  const warn = notes.length > 1; // 인원·직업 문제만 노란 글씨
+  if (changed) notes.push(`예전에 직접 고친 직업 ${changed}명을 적용했습니다.`);
+  status.className = 'status' + (warn ? ' warn' : '');
   status.textContent = notes.join(' ');
 }
 
@@ -1128,8 +1172,8 @@ const fmt = sec => `${sec.toFixed(1)}초`;
 const STATUS_LABEL = { 404: '없음', 429: '한도 초과', 500: '서버 오류', 503: '붐빔' };
 class ReadError extends Error { constructor(msg, log) { super(msg); this.log = log; } }
 
-async function askGemini(key, mime, data) {
-  const body = JSON.stringify({ contents: [{ parts: [{ text: AI_PROMPT }, { inline_data: { mime_type: mime, data } }] }] });
+async function askGemini(key, mime, data, ref) {
+  const body = JSON.stringify({ contents: [{ parts: geminiParts(ref, mime, data) }] });
   const log = [], seen = [];
   let last = '';
   for (const model of GEMINI_MODELS) {
@@ -1148,14 +1192,11 @@ async function askGemini(key, mime, data) {
   throw new ReadError(`읽기에 실패했습니다 (${last})`, log);
 }
 
-async function askClaude(key, mime, data) {
+async function askClaude(key, mime, data, ref) {
   const body = JSON.stringify({
     model: CLAUDE_MODEL, max_tokens: 1024,
     thinking: { type: 'disabled' }, output_config: { effort: 'low' }, // 생각하기를 끄고 빨리 답하게
-    messages: [{ role: 'user', content: [
-      { type: 'image', source: { type: 'base64', media_type: mime, data } },
-      { type: 'text', text: AI_PROMPT }
-    ] }]
+    messages: [{ role: 'user', content: claudeContent(ref, mime, data) }]
   });
   const { res, json, sec } = await timedPost('https://api.anthropic.com/v1/messages', {
     'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2026-10-21',
@@ -1171,6 +1212,15 @@ async function askClaude(key, mime, data) {
 }
 
 let lastShot = null;
+let iconRef = null; // 견본 이미지 base64 (처음 읽을 때 한 번 불러온다)
+async function loadIconRef() {
+  if (iconRef) return iconRef;
+  try {
+    const blob = await (await fetch('job-icons.png')).blob();
+    iconRef = await new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = bad; r.readAsDataURL(blob); });
+  } catch (e) { iconRef = null; } // 못 불러오면 견본 없이 읽는다
+  return iconRef;
+}
 document.getElementById('btnRetry').addEventListener('click', () => readShot(lastShot));
 async function readShot(file) {
   if (!file || !file.type.startsWith('image/')) return;
@@ -1190,7 +1240,8 @@ async function readShot(file) {
     });
     setPasteStatus(`${P.name}가 캡처를 읽는 중입니다…`);
     const t0 = performance.now();
-    const { text, log } = await (prov === 'claude' ? askClaude : askGemini)(key, file.type, data);
+    const ref = await loadIconRef();
+    const { text, log } = await (prov === 'claude' ? askClaude : askGemini)(key, file.type, data, ref);
     zone.lastChild.textContent = '다른 캡처를 붙여넣으면 다시 읽습니다';
     if (!text.trim()) throw new ReadError('읽은 글이 없습니다.', log);
     document.getElementById('pasteText').value = text.trim();
