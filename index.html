@@ -337,6 +337,7 @@ function parseRoster(text) {
   for (const raw of String(text).split(/\r?\n/)) {
     let line = raw.trim().replace(/^[1-2]\s*파티\s*[:.]?\s*/, '')
       .replace(/^(?:[-*•·]\s*|\d{1,2}\s*(?:[.):]|번)\s*)/, '').trim();
+    line = line.replace(/\[[^\]]*\]/g, ' ').trim(); // [ ] 안은 서버 이름이라 뺀다
     if (!line || /^[1-2]$/.test(line)) continue;
     const job = JOBS.find(j => line.includes(j)) || '';
     if (job) { const at = line.lastIndexOf(job); line = line.slice(0, at) + ' ' + line.slice(at + job.length); }
@@ -443,12 +444,13 @@ function runSelfTest() {
 
   // 명단 붙여넣기
   eq('명단: 번호·머리줄·구분 기호', parseRoster('1파티\n1. 민트 궁성\n2) 은퐁 - 치유성\n2파티\n홍권보[이스] 검성\n배술 (호법성)\n아노코\n'),
-    [{ name: '민트', job: '궁성' }, { name: '은퐁', job: '치유성' }, { name: '홍권보[이스]', job: '검성' }, { name: '배술', job: '호법성' }, { name: '아노코', job: '' }]);
+    [{ name: '민트', job: '궁성' }, { name: '은퐁', job: '치유성' }, { name: '홍권보', job: '검성' }, { name: '배술', job: '호법성' }, { name: '아노코', job: '' }]);
   eq('명단: 직업이 앞에 오는 줄', parseRoster('궁성 민트\n1파티 3번 다혜님: 치유성\n- 유나v / 마도성'),
     [{ name: '민트', job: '궁성' }, { name: '다혜님', job: '치유성' }, { name: '유나v', job: '마도성' }]);
   eq('Gemini 응답 글 뽑기', geminiText({ candidates: [{ content: { parts: [{ text: '민트 궁성\n' }, { text: '은퐁 치유성' }] } }] }), '민트 궁성\n은퐁 치유성');
   eq('Gemini 빈 응답', geminiText({ candidates: [] }), '');
   eq('Claude 응답 글 뽑기', claudeText({ content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: '민트 궁성' }] }), '민트 궁성');
+  eq('명단: [서버] 빼기', parseRoster('정령숙[젠카] 정령성\n마도성[크로] 마도성\n[이스]'), [{ name: '정령숙', job: '정령성' }, { name: '마도성', job: '마도성' }]);
   eq('명단: 빈 줄과 1·2 숫자줄 무시', parseRoster('\n1\n  \n가가 검성\n2\n나나 궁성'), [{ name: '가가', job: '검성' }, { name: '나나', job: '궁성' }]);
 
   st = base(); st.rows[2].name = ' ';
