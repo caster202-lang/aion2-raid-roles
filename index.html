@@ -20,17 +20,18 @@
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg);
   font: 15px/1.5 "Pretendard", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif; }
-main { max-width: 980px; margin: 0 auto; padding: 20px 16px 48px; }
-h1 { font-size: 22px; margin: 0 0 4px; }
+main { max-width: 1000px; margin: 0 auto; padding: 32px 20px 64px; }
+h1 { font-size: 24px; margin: 0 0 6px; letter-spacing: -0.01em; }
 h2 { font-size: 16px; margin: 0; }
-p.lead { margin: 0 0 16px; color: var(--muted); }
-.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin: 20px 0 10px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
+p.lead { margin: 0 0 20px; color: var(--muted); }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin: 32px 0 12px; }
+#raidView > .bar:first-child { margin-top: 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
 .card.p1 { border-top: 3px solid var(--p1); }
 .card.p2 { border-top: 3px solid var(--p2); }
-.card h2 { margin-bottom: 8px; }
-.row { display: grid; grid-template-columns: 1.2rem minmax(0, 1fr) 5.6rem auto auto; gap: 6px; align-items: center; margin-bottom: 6px; }
+.card h2 { margin-bottom: 12px; }
+.row { display: grid; grid-template-columns: 1.2rem minmax(0, 1fr) 5.6rem auto auto; gap: 8px; align-items: center; margin-bottom: 8px; }
 .row .num { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
 input[type=text], select { width: 100%; min-width: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px;
   background: var(--field); color: var(--fg); font: inherit; }
@@ -41,9 +42,9 @@ button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid v
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
 button:disabled { opacity: .45; cursor: not-allowed; }
-.tabs { display: flex; gap: 6px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; }
 .tabs button[aria-selected=true] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
-.pair { margin-bottom: 10px; }
+.pair { margin-bottom: 12px; }
 .pair .route { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
 .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .choices button, .slots button { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -54,14 +55,14 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .slots button.one { border-left: 4px solid var(--one); }
 .slots button[aria-pressed=true] { box-shadow: inset 0 0 0 2px var(--accent); }
 .reserve { font-size: 13px; margin-bottom: 8px; }
-.copy { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.copy { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
 .copy code { flex: 1; min-width: 0; word-break: break-all; padding: 6px 8px; border: 1px dashed var(--line);
   border-radius: 6px; font: 13px/1.4 Consolas, "D2Coding", monospace; }
 .copy button { white-space: nowrap; }
-.hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
-figure { margin: 12px 0 0; }
+.hint { font-size: 13px; color: var(--muted); margin: 12px 0 0; }
+figure { margin: 20px 0 0; }
 svg { display: block; width: 100%; height: auto; max-width: 640px; margin: 0 auto; }
-.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px; }
+.dpair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
 svg text { fill: var(--fg); font-size: 14px; }
 svg .dim { stroke: var(--line); fill: none; }
 svg .boss { fill: var(--fg); }
@@ -73,12 +74,18 @@ svg .mark { fill: var(--card); stroke-width: 3; }
 svg .path { fill: none; stroke-width: 4; stroke-linecap: round; }
 figcaption { font-size: 13px; color: var(--muted); text-align: center; margin-top: 4px; }
 .sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 4px 0 10px; }
-.tabs.raid { margin-top: 4px; }
-.tabs.raid button { padding: 8px 16px; }
+.tabs.raid { margin: 0 0 24px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.tabs.raid button { padding: 9px 18px; font-weight: 600; }
+@media (max-width: 480px) {
+  main { padding: 24px 16px 48px; }
+  .tabs.raid { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .tabs.raid button { padding: 9px 4px; }
+  #hqView .card { padding: 16px; }
+}
 body.snow .chk-mus { display: none; }
 body.snow .row { grid-template-columns: 1.2rem minmax(0, 1fr) 5.6rem; }
 body.snow #inputs .status { display: none; }
-.zone { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-bottom: 8px; }
+.zone { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
 .zone-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .zone-head strong { flex: 1; }
 .names { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -91,7 +98,7 @@ svg .pillart { fill: var(--card); font-size: 12px; font-weight: 700; }
 svg .front { stroke: var(--front); fill: none; stroke-width: 5; stroke-linecap: round; }
 svg .back { stroke: var(--back); fill: none; stroke-width: 5; stroke-linecap: round; }
 svg .zonefill { fill: var(--line); opacity: .35; }
-.paste { margin-bottom: 12px; }
+.paste { margin-bottom: 16px; }
 .paste summary { cursor: pointer; font-weight: 600; }
 .paste .steps { margin: 8px 0; padding-left: 20px; font-size: 13px; color: var(--muted); }
 .paste textarea { width: 100%; margin-top: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 6px;
@@ -107,29 +114,42 @@ svg .zonefill { fill: var(--line); opacity: .35; }
 #shotZone:focus, #shotZone.over { border-color: var(--accent); outline: none; }
 #shotZone img { display: block; max-width: 100%; max-height: 200px; margin: 0 auto 6px; }
 #selftest li.fail { color: var(--p1); font-weight: 600; }
-.hq-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
-.hq-f { display: grid; gap: 4px; font-size: 13px; color: var(--muted); align-content: start; }
+#hqView:not([hidden]) { display: grid; gap: 16px; }
+#hqView .card { padding: 20px; }
+#hqView h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; }
+.step { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; flex: none;
+  background: var(--accent); color: var(--accent-fg); font-size: 13px; font-weight: 700; }
+.hq-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+#hqView .hq-head h2 { margin: 0; }
+.hq-head > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.hq-head button, .hq-top button { white-space: nowrap; }
+.hq-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px 20px; }
+.hq-f { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); align-content: start; }
+.hq-f select, .hq-f input { font-weight: 400; }
 .hq-f button[aria-pressed=true] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
-.stepper { display: flex; align-items: center; gap: 8px; color: var(--fg); }
-.hq-person { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-top: 8px; }
-.hq-top { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
-.hq-top strong { min-width: 2rem; }
-.hq-top button, .hq-head button { white-space: nowrap; }
-.hq-chars { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; }
-.hq-char { border: 1px solid var(--line); border-radius: 6px; padding: 6px; display: grid; gap: 4px; align-content: start; }
+.stepper { display: flex; align-items: center; gap: 10px; color: var(--fg); }
+.stepper button { width: 36px; height: 36px; padding: 0; font-size: 18px; line-height: 1; }
+.hq-person { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-top: 12px; background: var(--field); }
+.hq-top { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.hq-top strong { min-width: 2rem; color: var(--muted); }
+.hq-chars { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.hq-char { border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: grid; gap: 6px; align-content: start; background: var(--card); }
 .hq-char.main { border-color: var(--accent); }
+.hq-char .tag { font-weight: 600; }
 .hq-char .chk { color: var(--muted); }
-.hq-dist { font-size: 13px; color: var(--muted); margin-top: 8px; }
-.hq-dist span { margin-right: 10px; }
-.hq-dist span.on { color: var(--fg); font-weight: 600; }
-.hq-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.hq-head > div { display: flex; gap: 6px; }
-.hq-party { border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
-.hq-party ol { margin: 6px 0 0; padding-left: 1.4rem; font-size: 14px; }
+.empty { margin: 12px 0 0; padding: 20px 16px; border: 1px dashed var(--line); border-radius: 10px; text-align: center; color: var(--muted); font-size: 14px; }
+.hq-check { margin: 16px 0 0; }
+.hq-dist { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 12px; font-size: 13px; color: var(--muted); }
+.hq-dist span { padding: 2px 10px; border: 1px solid var(--line); border-radius: 999px; }
+.hq-dist span.on { color: var(--fg); border-color: var(--accent); font-weight: 600; }
+.hq-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+.hq-actions .status { flex: 1; margin: 0; }
+.hq-game { border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-top: 16px; }
+.hq-game > .hq-head strong { font-size: 15px; }
+.hq-party ol { margin: 8px 0 0; padding-left: 1.4rem; font-size: 14px; line-height: 1.8; }
 .hq-party li.ext { color: var(--muted); }
 .hq-party .meta { color: var(--muted); font-size: 12px; }
-#hqView .card { margin-bottom: 12px; }
-#hqView .card > h2 { margin-bottom: 10px; }
+.hq-party .status { margin-top: 0; }
 </style>
 </head>
 <body>
@@ -1006,7 +1026,7 @@ function render() {
     document.getElementById('tabHint').textContent = wedge
       ? '두 사람을 차례로 누르면 자리가 서로 바뀝니다(서브 포함). 2-2(50%)에서 외부만 한 시간 앞으로 옮깁니다: 12→11시, 3→2시, 6→5시, 9→8시.'
       : '메인탱커·부탱은 1네임드와 같은 사람입니다. 메인탱커나 부탱을 누른 뒤 다른 사람을 누르면 서로 바뀝니다.';
-    document.getElementById('diagram').replaceChildren(wedge ? el('div', { className: 'pair' }, drawWedge('2-1'), drawWedge('2-2')) : drawWave());
+    document.getElementById('diagram').replaceChildren(wedge ? el('div', { className: 'dpair' }, drawWedge('2-1'), drawWedge('2-2')) : drawWave());
     document.getElementById('caption').replaceChildren(...(wedge
       ? [el('span', { className: 'sw', style: 'background:var(--p1)' }), '내부', el('span', { className: 'sw', style: 'background:var(--one)' }), '외부', ...pillarLegend(), ...markerLegend()]
       : ['구역마다 인원과 이름', ...pillarLegend(), ...markerLegend()]));
@@ -1248,7 +1268,7 @@ function hqSettings() {
     return b;
   };
   const step = d => el('button', { type: 'button', disabled: hq.alts + d < 0 || hq.alts + d > 5, on: { click: () => hqSetAlts(hq.alts + d) } }, d < 0 ? '−' : '+');
-  return el('section', { className: 'card' }, el('h2', {}, '1. 기본 설정'),
+  return el('section', { className: 'card' }, el('h2', {}, el('span', { className: 'step' }, '1'), '기본 설정'),
     el('div', { className: 'hq-fields' },
       el('label', { className: 'hq-f' }, '성역 기준', preset),
       el('div', { className: 'hq-f' }, '파티 수', el('div', { className: 'tabs' }, partyBtn(1), partyBtn(2))),
@@ -1257,9 +1277,9 @@ function hqSettings() {
 
 function hqPeople() {
   const add = el('button', { type: 'button', className: 'primary', on: { click: () => { hq.people.push(hqPerson()); hqSave(); renderHq(); } } }, '+ 참가자 추가');
-  const card = el('section', { className: 'card' }, el('div', { className: 'hq-head' }, el('h2', {}, `2. 참가자 (${hq.people.length}명)`), add),
+  const card = el('section', { className: 'card' }, el('div', { className: 'hq-head' }, el('h2', {}, el('span', { className: 'step' }, '2'), `참가자 ${hq.people.length}명`), add),
     el('p', { className: 'hint' }, '닉네임은 동만이[시엘]처럼 적으면 서버가 나뉩니다. 부캐는 본캐 서버를 따르고, 다를 때만 "서버 분리"를 체크하세요. 전투력은 550 또는 550k처럼 적습니다.'));
-  if (!hq.people.length) card.append(el('p', { className: 'status' }, '참가자를 추가한 뒤 닉네임·직업·전투력을 입력하세요.'));
+  if (!hq.people.length) card.append(el('p', { className: 'empty' }, '"+ 참가자 추가"를 눌러 닉네임·직업·전투력을 넣으세요.'));
   hq.people.forEach((p, i) => {
     const nick = el('input', { type: 'text', value: p.nick, placeholder: '닉네임[서버]', maxLength: 30, autocomplete: 'off',
       on: { input: e => { p.nick = e.target.value; hqSave(); } } });
@@ -1306,18 +1326,18 @@ function hqRules() {
     hq.people = []; hqGames = []; hqSave(); renderHq();
   } } }, '참가자 비우기');
   const go = el('button', { type: 'button', className: 'primary', disabled: !hq.people.length, on: { click: hqGenerate } }, '조합 생성');
-  return el('section', { className: 'card' }, el('h2', {}, '3. 배정 조건'),
+  return el('section', { className: 'card' }, el('h2', {}, el('span', { className: 'step' }, '3'), '배정 조건'),
     el('div', { className: 'hq-fields' }, num('minTank', '파티당 최소 탱커'), num('minSupport', '파티당 최소 서폿'), el('label', { className: 'hq-f' }, '파티 최소 평균 전투력', avg)),
-    el('p', { className: 'hint' }, el('label', { className: 'chk' }, stack, '본캐 한 파티에 몰아주기')),
+    el('p', { className: 'hq-check' }, el('label', { className: 'chk' }, stack, '본캐 한 파티에 몰아주기')),
     el('div', { className: 'hq-dist', id: 'hqDist' }),
-    el('div', { className: 'copy' }, el('p', { className: 'status', id: 'hqStatus', style: 'flex: 1; margin: 0' }), clear, go));
+    el('div', { className: 'hq-actions' }, el('p', { className: 'status', id: 'hqStatus' }), clear, go));
 }
 
 function hqMeta() {
   const n = Object.fromEntries(JOBS.map(j => [j, 0]));
   hq.people.forEach(p => p.chars.forEach(c => { if (c.job) n[c.job]++; }));
   const d = document.getElementById('hqDist');
-  if (d) d.replaceChildren('직업 분포 · ', ...JOBS.map(j => el('span', { className: n[j] ? 'on' : '' }, `${j} ${n[j]}`)));
+  if (d) d.replaceChildren('직업 분포', ...JOBS.map(j => el('span', { className: n[j] ? 'on' : '' }, `${j} ${n[j]}`)));
 }
 
 function hqGenerate() {
@@ -1334,14 +1354,14 @@ function hqGenerate() {
 }
 
 function hqResults() {
-  const head = el('div', { className: 'hq-head' }, el('h2', {}, '4. 결과'));
+  const head = el('div', { className: 'hq-head' }, el('h2', {}, el('span', { className: 'step' }, '4'), '결과'));
   const card = el('section', { className: 'card', id: 'hqResults' }, head);
-  if (!hqGames.length) { card.append(el('p', { className: 'status' }, '참가자를 넣고 "조합 생성"을 누르세요.')); return card; }
+  if (!hqGames.length) { card.append(el('p', { className: 'empty' }, '참가자를 넣고 "조합 생성"을 누르면 여기에 판별 파티가 나옵니다.')); return card; }
   head.append(hqCopyBtn('전체 복사', hqAllText(hqGames)));
   card.append(el('p', { className: 'hint' }, '"명단에 넣기"를 누르면 그 판의 1파티는 1~5번, 2파티는 6~10번 줄에 들어가고 무스펠·비탄 화면으로 돌아갑니다.'));
   hqGames.forEach(g => {
     const toRoster = el('button', { type: 'button', className: 'primary', on: { click: () => hqToRoster(g) } }, '명단에 넣기');
-    card.append(el('div', { className: 'zone' },
+    card.append(el('div', { className: 'hq-game' },
       el('div', { className: 'hq-head' }, el('strong', {}, `게임 ${g.index}`), el('div', {}, hqCopyBtn('게임 복사', hqGameText(g)), toRoster)),
       el('div', { className: 'grid' }, ...g.parties.map(p => el('div', { className: `card hq-party p${p.index}` },
         el('div', { className: 'hq-head' }, el('strong', {}, `파티 ${p.index} · 평균 ${fmtPower(p.avg) || '-'}`), hqCopyBtn('파티 복사', hqPartyText(g, p))),
