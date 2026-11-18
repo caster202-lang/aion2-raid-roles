@@ -214,3 +214,4 @@
 - (2026-11-18) 사용자 실제 시험에서 "high demand"(503)로 실패 → 503·500·429·404면 다음 모델(gemini-flash-latest → gemini-2.5-flash → gemini-flash-lite-latest → gemini-2.5-flash-lite)로 넘어가고, 실패 시 "다시 읽기" 버튼으로 같은 캡처를 다시 보낸다.
 - (2026-11-18) 읽기 상태에 모델별 결과·걸린 시간 표시(예: `gemini-flash-latest 붐빔 8.2초 → gemini-2.5-flash 성공 6.1초`). 모델 하나당 20초 기다려도 답이 없으면 다음 모델로.
 - (2026-11-18) Claude(유료 키) 선택 추가: `claude-haiku-5-5`, 생각하기 끔·effort low, 브라우저 직접 호출(`anthropic-dangerous-direct-browser-access`), 키는 `aion2-claude-key`, 선택은 `aion2-ai-provider`. 같은 캡처로 두 쪽 시간을 비교할 수 있다.
+- (2026-11-18) 사용자 시험 결과로 Gemini 모델 순서를 gemini-flash-lite-latest 먼저로 변경.
