@@ -61,6 +61,7 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
 figure { margin: 12px 0 0; }
 svg { display: block; width: 100%; height: auto; max-width: 640px; margin: 0 auto; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px; }
 svg text { fill: var(--fg); font-size: 14px; }
 svg .dim { stroke: var(--line); fill: none; }
 svg .boss { fill: var(--fg); }
@@ -728,11 +729,16 @@ function drawBoss2(calc) {
   return svg;
 }
 
-function drawWedge() {
-  const cx = 320, cy = 200, c = computeWedge(st), svg = sv('svg', { viewBox: '0 0 640 400', role: 'img', 'aria-label': '얼음쐐기 배치도' });
+// 얼음쐐기 2-1: 내부·외부 모두 3·6·9·12시 / 2-2(50%): 외부만 한 시간 앞(12→11, 3→2, 6→5, 9→8시)
+function drawWedge(phase) {
+  const cx = 320, cy = 200, c = computeWedge(st), late = phase === '2-2';
+  const svg = sv('svg', { viewBox: '0 0 640 400', role: 'img', 'aria-label': `얼음쐐기 ${phase} 배치도` });
   svg.append(sv('circle', { cx, cy, r: 80, class: 'dim' }), sv('circle', { cx, cy, r: 160, class: 'dim' }));
-  [['inner', 80, 0], ['outer', 160, 4]].forEach(([side, r, base]) => CLOCK4.forEach((h, k) => {
-    const [x, y] = at(h, r, cx, cy);
+  svg.append(sv('text', { x: 16, y: 30, 'font-weight': 700, 'font-size': 20 }, late ? '2-2 (50%)' : '2-1'));
+  // 2-2 외부는 기둥(2·5시)과 겹치지 않게 조금 더 바깥에 둔다
+  [['inner', 80, 0], ['outer', late ? 172 : 160, 4]].forEach(([side, r, base]) => CLOCK4.forEach((h0, k) => {
+    const h = late && side === 'outer' ? h0 - 1 : h0, a = ((h % 12) * 30 - 90) * Math.PI / 180;
+    const x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
     svg.append(sv('circle', { cx: x, cy: y, r: 10, class: `mark ${side}` }));
     const name = c.ok ? st.rows[c.order[base + k]].name.trim() : '—';
     // 내부 3·9시 이름표는 점 위에서 바깥쪽으로 써서 외부 3·9시 이름과 보스 마커에 겹치지 않게 한다
@@ -836,11 +842,11 @@ function render() {
   if (st.raid === 'snow') {
     const wedge = st.snowTab !== 'wave';
     document.getElementById('tabHint').textContent = wedge
-      ? '두 사람을 차례로 누르면 자리가 서로 바뀝니다(서브 포함). 외부는 2-2(50%)에서 한 시간 앞 자리(2·5·8·11시)로 옮깁니다.'
+      ? '두 사람을 차례로 누르면 자리가 서로 바뀝니다(서브 포함). 2-2(50%)에서 외부만 한 시간 앞으로 옮깁니다: 12→11시, 3→2시, 6→5시, 9→8시.'
       : '메인탱커·부탱은 1네임드와 같은 사람입니다. 메인탱커나 부탱을 누른 뒤 다른 사람을 누르면 서로 바뀝니다.';
-    document.getElementById('diagram').replaceChildren(wedge ? drawWedge() : drawWave());
+    document.getElementById('diagram').replaceChildren(wedge ? el('div', { className: 'pair' }, drawWedge('2-1'), drawWedge('2-2')) : drawWave());
     document.getElementById('caption').replaceChildren(...(wedge
-      ? [el('span', { className: 'sw', style: 'background:var(--p1)' }), '내부', el('span', { className: 'sw', style: 'background:var(--one)' }), '외부 (2-1 기준)', ...pillarLegend(), ...markerLegend()]
+      ? [el('span', { className: 'sw', style: 'background:var(--p1)' }), '내부', el('span', { className: 'sw', style: 'background:var(--one)' }), '외부', ...pillarLegend(), ...markerLegend()]
       : ['구역마다 인원과 이름', ...pillarLegend(), ...markerLegend()]));
     return;
   }
