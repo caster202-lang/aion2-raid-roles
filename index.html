@@ -246,7 +246,7 @@ function text2(st, p) {
 const INNER_JOBS = ['수호성', '검성', '살성', '권성', '호법성'];
 const OUTER_JOBS = ['궁성', '마도성', '정령성'];
 const CLOCK4 = [3, 6, 9, 12];
-// 파도패턴: 1시 메인탱커 · 5시 2파티 · 7시 부탱 · 11시 1파티 (탱커·부탱은 1네임드 배정과 같다)
+// 파도패턴: 1시 메인탱커 · 5시 2파티 · 7시 부탱 · 11시 1파티 (메인탱커·부탱은 1네임드 배정과 같다)
 const WAVE_ZONES = ['1시 메인탱커', '5시 2파티', '7시 부탱', '11시 1파티'];
 const ALL = [...Array(10).keys()];
 
@@ -285,7 +285,7 @@ function textWedge(st, side) {
     CLOCK4.map((h, k) => `${h}시 ${st.rows[c.order[base + k]].name.trim()}`).join(' / ');
 }
 
-// 1네임드 order: [탱커, 서브탱, 나머지 8명(줄 순서)] — 탱커는 수호성 → 검성 순
+// 1네임드 order: [메인탱커, 부탱, 나머지 8명(줄 순서)] — 수호성 → 검성 순
 const TANK_JOBS = ['수호성', '검성'];
 function autoSnow1(rows) {
   const cands = TANK_JOBS.flatMap(j => ALL.filter(i => rows[i].job === j));
@@ -304,7 +304,7 @@ function computeSnow1(st) {
   return { ok: true, order, short: manual ? false : auto.short, groups: [rest.filter(i => i < 5), rest.filter(i => i >= 5)] };
 }
 
-const SNOW1 = [{ route: '9시->12시', role: '탱커' }, { route: '3시->6시', role: '서브탱' }];
+const SNOW1 = [{ route: '9시->12시', role: '메인탱커' }, { route: '3시->6시', role: '부탱' }];
 function textSnow1(st, p) {
   const c = computeSnow1(st);
   if (!c.ok) return null;
@@ -426,20 +426,20 @@ function runSelfTest() {
   st.wedge = [4, 2, 5, 7, 1, 3, 6, 8, 9, 0];
   eq('쐐기: 직접 바꾼 자리', textWedge(st, 'inner'), '[쐐기] 내부 3시 마마 / 6시 다다 / 9시 바바 / 12시 아아');
   st = snow(['검성', '궁성', '수호성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '호법성']);
-  eq('설원 1넴: 수호성 둘이 탱커·서브탱', autoSnow1(st.rows), { order: [2, 5, 0, 1, 3, 4, 6, 7, 8, 9], short: false });
+  eq('설원 1넴: 수호성 둘이 메인탱커·부탱', autoSnow1(st.rows), { order: [2, 5, 0, 1, 3, 4, 6, 7, 8, 9], short: false });
   st = snow(['검성', '궁성', '살성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '검성']);
-  eq('설원 1넴: 수호성 하나면 검성이 서브탱', autoSnow1(st.rows), { order: [5, 0, 1, 2, 3, 4, 6, 7, 8, 9], short: false });
+  eq('설원 1넴: 수호성 하나면 검성이 부탱', autoSnow1(st.rows), { order: [5, 0, 1, 2, 3, 4, 6, 7, 8, 9], short: false });
   st = snow(['궁성', '궁성', '살성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '호법성']);
   eq('설원 1넴: 후보 부족 → 첫 줄로 채우고 알림', autoSnow1(st.rows), { order: [5, 0, 1, 2, 3, 4, 6, 7, 8, 9], short: true });
   st = snow(['검성', '궁성', '수호성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '호법성']);
   st.rows.forEach((r, i) => { r.name = ['가가', '나나', '다다', '라라', '마마', '바바', '사사', '아아', '자자', '차차'][i]; });
   eq('설원 1넴: 파티별 문구', [textSnow1(st, 0), textSnow1(st, 1)],
-    ['[1넴] 9시->12시 가가, 나나, 라라, 마마 / 탱커 다다', '[1넴] 3시->6시 사사, 아아, 자자, 차차 / 서브탱 바바']);
+    ['[1넴] 9시->12시 가가, 나나, 라라, 마마 / 메인탱커 다다', '[1넴] 3시->6시 사사, 아아, 자자, 차차 / 부탱 바바']);
   st = blankState(); st.rows.forEach((r, i) => { r.name = ['가가', '나나', '다다', '라라', '마마', '바바', '사사', '아아', '자자', '차차'][i]; });
   st.rows.forEach((r, i) => { r.job = ['검성', '궁성', '수호성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '호법성'][i]; });
-  eq('파도: 탱커·부탱·파티', textWave(st), '[파도] 1시 메인탱커 다다 / 5시 2파티 사사, 아아, 자자, 차차 / 7시 부탱 바바 / 11시 1파티 가가, 나나, 라라, 마마');
+  eq('파도: 메인탱커·부탱·파티', textWave(st), '[파도] 1시 메인탱커 다다 / 5시 2파티 사사, 아아, 자자, 차차 / 7시 부탱 바바 / 11시 1파티 가가, 나나, 라라, 마마');
   st.snow1 = [5, 2, 0, 1, 3, 4, 6, 7, 8, 9];
-  eq('파도: 1넴에서 바꾼 탱커를 따름', textWave(st), '[파도] 1시 메인탱커 바바 / 5시 2파티 사사, 아아, 자자, 차차 / 7시 부탱 다다 / 11시 1파티 가가, 나나, 라라, 마마');
+  eq('파도: 1넴에서 바꾼 메인탱커를 따름', textWave(st), '[파도] 1시 메인탱커 바바 / 5시 2파티 사사, 아아, 자자, 차차 / 7시 부탱 다다 / 11시 1파티 가가, 나나, 라라, 마마');
 
   // 명단 붙여넣기
   eq('명단: 번호·머리줄·구분 기호', parseRoster('1파티\n1. 민트 궁성\n2) 은퐁 - 치유성\n2파티\n홍권보[이스] 검성\n배술 (호법성)\n아노코\n'),
@@ -602,7 +602,7 @@ function renderSnow1(host) {
     if (c.ok) {
       card.append(el('div', { className: 'names' }, snowButton('snow1', p, c.order[p], SNOW1[p].role),
         ...c.groups[p].map(g => snowButton('snow1', c.order.indexOf(g), g, `${Math.floor(g / 5) + 1}파티`))));
-      if (c.groups[p].length !== 4) card.append(el('p', { className: 'status warn' }, `이동 인원이 ${c.groups[p].length}명입니다 (탱커·서브탱이 같은 파티)`));
+      if (c.groups[p].length !== 4) card.append(el('p', { className: 'status warn' }, `이동 인원이 ${c.groups[p].length}명입니다 (메인탱커·부탱이 같은 파티)`));
     }
     card.append(copyRow(p, textSnow1(st, p), `${p + 1}파티 복사`, empty));
     host.append(card);
@@ -761,11 +761,11 @@ function drawSnow1() {
   });
   // 온기구슬
   CLOCK4.forEach(h => { const [x, y] = pt(h, 100); svg.append(sv('circle', { cx: x, cy: y, r: 9, class: 'orb' })); });
-  // 탱커(12·3시) · 서브탱(6·9시) 자리
+  // 메인탱커(12·3시) · 부탱(6·9시) 자리
   [[12, 0], [3, 0], [6, 1], [9, 1]].forEach(([h, k]) => {
     const [x, y] = pt(h, 58);
     svg.append(sv('rect', { x: x - 10, y: y - 10, width: 20, height: 20, rx: 4, class: `mark s${k + 1}` }),
-      sv('text', { x, y: y + 4, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 700 }, k ? '서' : '탱'));
+      sv('text', { x, y: y + 4, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 700 }, k ? '부' : '메'));
   });
   const nm = g => st.rows[g].name.trim();
   // 파티 명단: 1파티는 9시 바깥, 2파티는 3시 바깥
@@ -775,8 +775,8 @@ function drawSnow1() {
     svg.append(sv('text', { x, y: y0, 'text-anchor': anchor, 'font-weight': 600 }, `${p + 1}파티 ${SNOW1[p].route.replace('->', '→')}`));
     names.forEach((n, i) => svg.append(sv('text', { x, y: y0 + 18 + i * 17, 'text-anchor': anchor }, n)));
   });
-  svg.append(sv('text', { x: 16, y: 26, 'font-weight': 600 }, `탱커 ${c.ok ? nm(c.order[0]) : '—'} (12시·3시)`));
-  svg.append(sv('text', { x: 624, y: 26, 'text-anchor': 'end', 'font-weight': 600 }, `서브탱 ${c.ok ? nm(c.order[1]) : '—'} (6시·9시)`));
+  svg.append(sv('text', { x: 16, y: 26, 'font-weight': 600 }, `메인탱커 ${c.ok ? nm(c.order[0]) : '—'} (12시·3시)`));
+  svg.append(sv('text', { x: 624, y: 26, 'text-anchor': 'end', 'font-weight': 600 }, `부탱 ${c.ok ? nm(c.order[1]) : '—'} (6시·9시)`));
   drawBoss(svg, cx, cy);
   return svg;
 }
@@ -825,10 +825,10 @@ function render() {
   renderTabs();
   renderResults(calc);
   if (st.raid === 'snow' && st.snowTab === 'n1') {
-    document.getElementById('tabHint').textContent = '탱커·서브탱을 누른 뒤 다른 사람을 누르면 서로 바뀝니다. 탱 브레스 순서: ① 6시 서브탱 ② 12시 탱커 ③ 9시 서브탱 ④ 3시 탱커';
+    document.getElementById('tabHint').textContent = '메인탱커·부탱을 누른 뒤 다른 사람을 누르면 서로 바뀝니다. 탱 브레스 순서: ① 6시 부탱 ② 12시 메인탱커 ③ 9시 부탱 ④ 3시 메인탱커';
     document.getElementById('diagram').replaceChildren(drawSnow1());
-    document.getElementById('caption').replaceChildren(el('span', { className: 'sw', style: 'background:var(--p1)' }), '1파티·탱커',
-      el('span', { className: 'sw', style: 'background:var(--p2)' }), '2파티·서브탱', ' · ', el('span', { className: 'sw', style: 'background:#ff8a3d' }), '온기구슬', ...markerLegend());
+    document.getElementById('caption').replaceChildren(el('span', { className: 'sw', style: 'background:var(--p1)' }), '1파티·메인탱커',
+      el('span', { className: 'sw', style: 'background:var(--p2)' }), '2파티·부탱', ' · ', el('span', { className: 'sw', style: 'background:#ff8a3d' }), '온기구슬', ...markerLegend());
     return;
   }
   if (st.raid === 'snow') {
