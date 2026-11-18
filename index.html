@@ -107,6 +107,29 @@ svg .zonefill { fill: var(--line); opacity: .35; }
 #shotZone:focus, #shotZone.over { border-color: var(--accent); outline: none; }
 #shotZone img { display: block; max-width: 100%; max-height: 200px; margin: 0 auto 6px; }
 #selftest li.fail { color: var(--p1); font-weight: 600; }
+.hq-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.hq-f { display: grid; gap: 4px; font-size: 13px; color: var(--muted); align-content: start; }
+.hq-f button[aria-pressed=true] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
+.stepper { display: flex; align-items: center; gap: 8px; color: var(--fg); }
+.hq-person { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-top: 8px; }
+.hq-top { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.hq-top strong { min-width: 2rem; }
+.hq-top button, .hq-head button { white-space: nowrap; }
+.hq-chars { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; }
+.hq-char { border: 1px solid var(--line); border-radius: 6px; padding: 6px; display: grid; gap: 4px; align-content: start; }
+.hq-char.main { border-color: var(--accent); }
+.hq-char .chk { color: var(--muted); }
+.hq-dist { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.hq-dist span { margin-right: 10px; }
+.hq-dist span.on { color: var(--fg); font-weight: 600; }
+.hq-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.hq-head > div { display: flex; gap: 6px; }
+.hq-party { border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.hq-party ol { margin: 6px 0 0; padding-left: 1.4rem; font-size: 14px; }
+.hq-party li.ext { color: var(--muted); }
+.hq-party .meta { color: var(--muted); font-size: 12px; }
+#hqView .card { margin-bottom: 12px; }
+#hqView .card > h2 { margin-bottom: 10px; }
 </style>
 </head>
 <body>
@@ -116,10 +139,13 @@ svg .zonefill { fill: var(--line); opacity: .35; }
   <div class="tabs raid" role="tablist" aria-label="성역">
     <button type="button" role="tab" data-raid="mus">무스펠의 성배</button>
     <button type="button" role="tab" data-raid="snow">비탄의 설원</button>
+    <button type="button" role="tab" data-raid="hq">본부 조합</button>
   </div>
 
   <section id="selftest" class="card" hidden></section>
 
+  <div id="hqView" hidden></div>
+  <div id="raidView">
   <div class="bar">
     <h2>공대원 입력</h2>
     <div>
@@ -168,6 +194,7 @@ svg .zonefill { fill: var(--line); opacity: .35; }
     <div id="diagram"></div>
     <figcaption id="caption"></figcaption>
   </figure>
+  </div>
 </main>
 
 <script>
@@ -185,7 +212,7 @@ function blankState() {
   return {
     rows: Array.from({ length: 10 }, (_, g) => ({ name: '', job: '', two: g % 5 === 1 || g % 5 === 3 })), // 2번·4번 줄은 2줄 체크가 기본
     reserve: [null, null], dribble: [[null, null], [null, null]], slots: [null, null], tab: 'b1',
-    raid: 'mus', snowTab: 'n1', snow1: null, wedge: null
+    raid: 'mus', prevRaid: 'mus', snowTab: 'n1', snow1: null, wedge: null
   };
 }
 
@@ -359,6 +386,108 @@ function claudeText(json) {
   return json && Array.isArray(json.content) ? json.content.filter(b => b.type === 'text').map(b => b.text).join('') : '';
 }
 
+/* ---------- 본부 조합: 본캐·부캐 로테이션 (화면과 무관) ---------- */
+const HQ_PRESETS = [['rudra', '루드라 200k', 200000], ['bagot', '바고트 400k', 400000], ['muspel-n', '무스펠 보통 550k', 550000], ['muspel-h', '무스펠 어려움 600k', 600000]];
+const ROLE_NAME = { tank: '탱커', support: '서폿', dealer: '딜러' };
+function hqRole(job) { return job === '수호성' || job === '검성' ? 'tank' : job === '치유성' || job === '호법성' ? 'support' : 'dealer'; }
+// "550" → 550k, "550k", "612,500" 모두 읽는다. 못 읽으면 0
+function parsePower(text) {
+  const t = String(text || '').toLowerCase().replace(/[,\s]/g, '');
+  if (!t) return 0;
+  const k = t.endsWith('k'), n = Number(k ? t.slice(0, -1) : t);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.round(k || n < 10000 ? n * 1000 : n);
+}
+function fmtPower(n) {
+  if (!n || n <= 0) return '';
+  return n % 1000 === 0 ? `${n / 1000}k` : `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+}
+function splitNick(text) {
+  const m = String(text || '').trim().match(/^(.+?)\s*[\[(（【]\s*(.+?)\s*[\])）】]$/);
+  return m ? { name: m[1].trim(), server: m[2].trim() } : { name: String(text || '').trim(), server: '' };
+}
+
+// people: [{id, name, server, chars: [{id, job, power, isMain, server}]}] (직업 있는 캐릭만)
+// opt: {parties, minTank, minSupport, minAvg, stack} → [{index, parties: [{index, slots, avg, warnings}]}]
+function buildGames(people, opt) {
+  let pool = [];
+  people.forEach(p => p.chars.forEach(c => pool.push({ pid: p.id, name: p.name, server: c.server || p.server, cid: c.id,
+    job: c.job, role: hqRole(c.job), power: c.power || 0, isMain: !!c.isMain })));
+  const cap = opt.parties * 5, need = opt.parties, games = [];
+  const mainFirst = (a, b) => a.isMain !== b.isMain ? (a.isMain ? -1 : 1) : b.power - a.power;
+  while (pool.length && games.length < 30) {
+    // 1) 한 사람당 1캐릭: 탱·서폿을 가진 사람 먼저, 그다음 전투력(부캐는 ×0.9)
+    const byPerson = new Map();
+    pool.forEach(c => { if (!byPerson.has(c.pid)) byPerson.set(c.pid, []); byPerson.get(c.pid).push(c); });
+    const score = list => (list.some(c => c.role === 'tank') ? 2 : 0) + (list.some(c => c.role === 'support') ? 2 : 0)
+      + Math.max(...list.map(c => c.isMain ? c.power : c.power * 0.9)) / 1e6;
+    const order = [...byPerson.values()].sort((a, b) => score(b) - score(a));
+    const chosen = [];
+    for (const list of order) {
+      if (chosen.length >= cap) break;
+      const own = list.slice().sort(mainFirst);
+      const count = role => chosen.filter(c => c.role === role).length;
+      let pick = own[0];
+      if (count('tank') < need) pick = own.find(c => c.role === 'tank') || pick;
+      else if (count('support') < need) pick = own.find(c => c.role === 'support') || pick;
+      chosen.push(pick);
+    }
+    if (!chosen.length) break;
+    // 2) 파티 나누기: 탱·서폿 최소 인원 먼저, 나머지는 인원 적은·평균 낮은 파티로
+    const parties = Array.from({ length: opt.parties }, () => []), rest = chosen.slice();
+    const avgOf = list => list.length ? list.reduce((a, c) => a + c.power, 0) / list.length : 0;
+    [['tank', opt.minTank], ['support', opt.minSupport]].forEach(([role, min]) => parties.forEach(party => {
+      for (let n = 0; n < min && party.length < 5; n++) {
+        const i = rest.findIndex(c => c.role === role);
+        if (i < 0) break;
+        party.push(rest.splice(i, 1)[0]);
+      }
+    }));
+    rest.sort(opt.stack ? mainFirst : (a, b) => b.power - a.power);
+    const lightest = from => {
+      let best = -1;
+      for (let k = from; k < parties.length; k++) {
+        if (parties[k].length >= 5) continue;
+        if (best < 0 || parties[k].length < parties[best].length
+          || (parties[k].length === parties[best].length && avgOf(parties[k]) < avgOf(parties[best]))) best = k;
+      }
+      return best < 0 && from > 0 ? lightest(0) : best;
+    };
+    rest.forEach(c => {
+      // 본캐 몰아주기: 본캐는 1파티부터, 1파티가 차면 나머지 파티로
+      const k = opt.stack && c.isMain && parties[0].length < 5 ? 0 : lightest(opt.stack && c.isMain ? 1 : 0);
+      if (k >= 0) parties[k].push(c);
+    });
+    games.push({ index: games.length + 1, parties: parties.map((list, k) => {
+      const real = list.map(c => ({ name: c.name, server: c.server, job: c.job, role: c.role, power: c.power, isMain: c.isMain }));
+      const slots = real.concat(Array.from({ length: 5 - real.length },
+        () => ({ name: '외부인원', server: '', job: '-', role: 'dealer', power: 0, isMain: false, external: true })));
+      const avg = real.length ? Math.round(real.reduce((a, c) => a + c.power, 0) / real.length) : 0;
+      const tanks = real.filter(c => c.role === 'tank').length, sups = real.filter(c => c.role === 'support').length, warnings = [];
+      if (tanks < opt.minTank) warnings.push(`탱커 ${tanks}/${opt.minTank}`);
+      if (sups < opt.minSupport) warnings.push(`서폿 ${sups}/${opt.minSupport}`);
+      if (opt.minAvg && real.length && avg < opt.minAvg) warnings.push(`평균 전투력 ${fmtPower(avg)} < ${fmtPower(opt.minAvg)}`);
+      return { index: k + 1, slots, avg, warnings };
+    }) });
+    const used = new Set(chosen.map(c => c.cid));
+    pool = pool.filter(c => !used.has(c.cid));
+  }
+  return games;
+}
+function hqPartyText(game, party) {
+  return `[게임${game.index} 파티${party.index}] 평균 ${fmtPower(party.avg)}\n` + party.slots.map((c, i) => c.external
+    ? `${i + 1}. 외부인원 -(딜러/외부)`
+    : `${i + 1}. ${c.name}${c.server ? `[${c.server}]` : ''} ${c.job}(${ROLE_NAME[c.role]}/${c.isMain ? '본' : '부'}) ${fmtPower(c.power)}`.trimEnd()).join('\n');
+}
+function hqGameText(game) { return game.parties.map(p => hqPartyText(game, p)).join('\n\n'); }
+function hqAllText(games) { return games.map(hqGameText).join('\n\n————\n\n'); }
+// 한 판을 공대원 입력 줄로: 1파티 → 1~5번, 2파티 → 6~10번, 외부인원은 빈 칸
+function gameRows(game) {
+  const rows = [];
+  game.parties.forEach(p => p.slots.forEach(c => rows.push(c.external ? { name: '', job: '' } : { name: c.name, job: c.job })));
+  return rows;
+}
+
 /* ---------- 자체 시험 (?selftest=1) ---------- */
 function runSelfTest() {
   const out = [];
@@ -453,6 +582,31 @@ function runSelfTest() {
   eq('Claude 응답 글 뽑기', claudeText({ content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: '민트 궁성' }] }), '민트 궁성');
   eq('명단: [서버] 빼기', parseRoster('정령숙[젠카] 정령성\n마도성[크로] 마도성\n[이스]'), [{ name: '정령숙', job: '정령성' }, { name: '마도성', job: '마도성' }]);
   eq('명단: 빈 줄과 1·2 숫자줄 무시', parseRoster('\n1\n  \n가가 검성\n2\n나나 궁성'), [{ name: '가가', job: '검성' }, { name: '나나', job: '궁성' }]);
+
+  // 본부 조합
+  eq('전투력 읽기', ['550', '550k', '612,500', '1.5k', '', 'abc', '612.5'].map(parsePower), [550000, 550000, 612500, 1500, 0, 0, 612500]);
+  eq('전투력 표시', [600000, 612500, 0].map(fmtPower), ['600k', '612.5k', '']);
+  eq('닉네임[서버]', [splitNick('동만이[시엘]'), splitNick('민트 (이스)'), splitNick('은퐁')],
+    [{ name: '동만이', server: '시엘' }, { name: '민트', server: '이스' }, { name: '은퐁', server: '' }]);
+  eq('역할', ['수호성', '검성', '치유성', '호법성', '궁성', '권성'].map(hqRole), ['tank', 'tank', 'support', 'support', 'dealer', 'dealer']);
+  const hqP = (id, name, server, ...chars) => ({ id, name, server, chars: chars.map(([job, power], k) => ({ id: id + k, job, power, isMain: k === 0 })) });
+  let games = buildGames([hqP('a', '가가', '시엘', ['궁성', 650000], ['수호성', 600000]), hqP('b', '나나', '', ['치유성', 620000], ['살성', 580000])],
+    { parties: 1, minTank: 1, minSupport: 1, minAvg: 600000, stack: false });
+  eq('본부: 판마다 한 사람 1캐릭, 탱·서폿 캐릭 먼저', games.map(g => g.parties[0].slots.filter(c => !c.external).map(c => c.name + c.job)),
+    [['가가수호성', '나나치유성'], ['가가궁성', '나나살성']]);
+  eq('본부: 경고', games.map(g => g.parties[0].warnings), [[], ['탱커 0/1', '서폿 0/1']]);
+  eq('본부: 파티 문구', hqPartyText(games[0], games[0].parties[0]),
+    '[게임1 파티1] 평균 610k\n1. 가가[시엘] 수호성(탱커/부) 600k\n2. 나나 치유성(서폿/본) 620k\n3. 외부인원 -(딜러/외부)\n4. 외부인원 -(딜러/외부)\n5. 외부인원 -(딜러/외부)');
+  const ten = ['가', '나', '다', '라', '마', '바', '사', '아', '자', '차'].map((n, i) =>
+    hqP('p' + i, n + n, '', [['수호성', '치유성', '궁성', '궁성', '살성', '검성', '호법성', '마도성', '정령성', '권성'][i], 700000 - i * 10000]));
+  games = buildGames(ten, { parties: 2, minTank: 1, minSupport: 1, minAvg: 0, stack: false });
+  eq('본부: 10명 2파티 → 파티마다 탱·서폿 1명씩', games[0].parties.map(p => [p.slots.filter(c => c.role === 'tank').length,
+    p.slots.filter(c => c.role === 'support').length, p.warnings.length]), [[1, 1, 0], [1, 1, 0]]);
+  eq('본부: 명단에 넣기 10줄', gameRows(games[0]).filter(r => r.name).length, 10);
+  const mix = [hqP('q0', 'q0', '', ['궁성', 700000], ['수호성', 500000])]
+    .concat([690, 680, 670, 660, 650, 640, 630, 620, 610].map((v, i) => hqP('q' + (i + 1), 'q' + (i + 1), '', ['살성', v * 1000])));
+  games = buildGames(mix, { parties: 2, minTank: 1, minSupport: 0, minAvg: 0, stack: true });
+  eq('본부: 본캐 몰아주기 → 본캐 높은 순으로 1파티부터', games[0].parties[0].slots.map(c => c.name), ['q0', 'q1', 'q2', 'q3', 'q4']);
 
   st = base(); st.rows[2].name = ' ';
   eq('이름 하나 비움', compute(st, 0), { ok: false, missing: 1 });
@@ -821,6 +975,14 @@ function renderTabs() {
 
 function render() {
   save();
+  const hqOn = st.raid === 'hq';
+  document.getElementById('hqView').hidden = !hqOn;
+  document.getElementById('raidView').hidden = hqOn;
+  if (hqOn) {
+    document.querySelectorAll('[data-raid]').forEach(t => t.setAttribute('aria-selected', String(t.dataset.raid === st.raid)));
+    renderHq();
+    return;
+  }
   const calc = [compute(st, 0), compute(st, 1)];
   [0, 1].forEach(p => {
     const c = calc[p], status = document.getElementById(`status-${p}`);
@@ -861,7 +1023,10 @@ function render() {
     : [el('span', { className: 'sw', style: 'background:var(--two)' }), '2줄 관리', el('span', { className: 'sw', style: 'background:var(--one)' }), '1줄 관리', ...markerLegend()]));
 }
 
-document.querySelectorAll('[data-raid]').forEach(t => t.addEventListener('click', () => { st.raid = t.dataset.raid; picked = null; snowPick = null; render(); }));
+document.querySelectorAll('[data-raid]').forEach(t => t.addEventListener('click', () => {
+  if (st.raid !== 'hq') st.prevRaid = st.raid; // 명단에 넣기 뒤 돌아갈 화면
+  st.raid = t.dataset.raid; picked = null; snowPick = null; render();
+}));
 document.getElementById('btnAuto').addEventListener('click', () => {
   st.reserve = [null, null]; touch(0); touch(1); touchSnow(); render();
 });
@@ -1021,7 +1186,7 @@ async function readShot(file) {
 
 document.addEventListener('paste', e => {
   const item = [...(e.clipboardData ? e.clipboardData.items : [])].find(i => i.type.startsWith('image/'));
-  if (!item) return; // 글 붙여넣기는 그대로 둔다
+  if (!item || st.raid === 'hq') return; // 글 붙여넣기와 본부 조합 화면은 그대로 둔다
   e.preventDefault();
   readShot(item.getAsFile());
 });
@@ -1032,6 +1197,169 @@ shotFile.addEventListener('change', () => { readShot(shotFile.files[0]); shotFil
 zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
 zone.addEventListener('dragleave', () => zone.classList.remove('over'));
 zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('over'); readShot(e.dataTransfer.files[0]); });
+
+/* ---------- 본부 조합 화면 ---------- */
+const HQ_KEY = 'aion2-hq-v1';
+let hqSeq = 0;
+const hqNewId = () => `h${Date.now().toString(36)}${(hqSeq++).toString(36)}`;
+const hqChar = isMain => ({ id: hqNewId(), job: '', power: '', isMain, sep: false, server: '' });
+function hqBlank() { return { preset: 'muspel-h', minAvg: '600k', parties: 2, alts: 2, minTank: 1, minSupport: 1, stack: false, people: [] }; }
+function hqLoad() {
+  try {
+    const v = JSON.parse(localStorage.getItem(HQ_KEY));
+    if (v && Array.isArray(v.people)) return Object.assign(hqBlank(), v);
+  } catch (e) { /* 저장을 쓸 수 없으면 빈 상태 */ }
+  return hqBlank();
+}
+let hq = hqLoad();
+let hqGames = []; // 결과는 저장하지 않는다
+function hqSave() { try { localStorage.setItem(HQ_KEY, JSON.stringify(hq)); } catch (e) { /* 저장 불가 */ } }
+function hqPerson() { return { id: hqNewId(), nick: '', chars: [hqChar(true), ...Array.from({ length: hq.alts }, () => hqChar(false))] }; }
+function hqSetAlts(n) {
+  hq.alts = n;
+  hq.people.forEach(p => {
+    const alts = p.chars.filter(c => !c.isMain).slice(0, n);
+    while (alts.length < n) alts.push(hqChar(false));
+    p.chars = [p.chars.find(c => c.isMain) || hqChar(true), ...alts];
+  });
+  hqSave(); renderHq();
+}
+function hqCopyBtn(label, text) {
+  const b = el('button', { type: 'button', on: { click: () => copyText(text, b) } }, label);
+  return b;
+}
+
+function renderHq() {
+  document.getElementById('hqView').replaceChildren(hqSettings(), hqPeople(), hqRules(), hqResults());
+  hqMeta();
+}
+
+function hqSettings() {
+  const preset = el('select', { id: 'hqPreset', on: { change: e => {
+    hq.preset = e.target.value;
+    const p = HQ_PRESETS.find(x => x[0] === hq.preset);
+    if (p) hq.minAvg = fmtPower(p[2]);
+    hqSave(); renderHq();
+  } } }, ...HQ_PRESETS.map(([id, label]) => el('option', { value: id }, label)), el('option', { value: '' }, '직접 입력'));
+  preset.value = hq.preset;
+  const partyBtn = n => {
+    const b = el('button', { type: 'button', on: { click: () => { hq.parties = n; hqSave(); renderHq(); } } }, n === 1 ? '1파티 (5명)' : '2파티 (10명)');
+    b.setAttribute('aria-pressed', String(hq.parties === n));
+    return b;
+  };
+  const step = d => el('button', { type: 'button', disabled: hq.alts + d < 0 || hq.alts + d > 5, on: { click: () => hqSetAlts(hq.alts + d) } }, d < 0 ? '−' : '+');
+  return el('section', { className: 'card' }, el('h2', {}, '1. 기본 설정'),
+    el('div', { className: 'hq-fields' },
+      el('label', { className: 'hq-f' }, '성역 기준', preset),
+      el('div', { className: 'hq-f' }, '파티 수', el('div', { className: 'tabs' }, partyBtn(1), partyBtn(2))),
+      el('div', { className: 'hq-f' }, '참가자당 부캐 수', el('div', { className: 'stepper' }, step(-1), el('strong', {}, `본캐 + 부캐 ${hq.alts}`), step(1)))));
+}
+
+function hqPeople() {
+  const add = el('button', { type: 'button', className: 'primary', on: { click: () => { hq.people.push(hqPerson()); hqSave(); renderHq(); } } }, '+ 참가자 추가');
+  const card = el('section', { className: 'card' }, el('div', { className: 'hq-head' }, el('h2', {}, `2. 참가자 (${hq.people.length}명)`), add),
+    el('p', { className: 'hint' }, '닉네임은 동만이[시엘]처럼 적으면 서버가 나뉩니다. 부캐는 본캐 서버를 따르고, 다를 때만 "서버 분리"를 체크하세요. 전투력은 550 또는 550k처럼 적습니다.'));
+  if (!hq.people.length) card.append(el('p', { className: 'status' }, '참가자를 추가한 뒤 닉네임·직업·전투력을 입력하세요.'));
+  hq.people.forEach((p, i) => {
+    const nick = el('input', { type: 'text', value: p.nick, placeholder: '닉네임[서버]', maxLength: 30, autocomplete: 'off',
+      on: { input: e => { p.nick = e.target.value; hqSave(); } } });
+    nick.setAttribute('aria-label', `${i + 1}번 참가자 닉네임`);
+    const del = el('button', { type: 'button', on: { click: () => { hq.people.splice(i, 1); hqSave(); renderHq(); } } }, '삭제');
+    card.append(el('div', { className: 'hq-person' }, el('div', { className: 'hq-top' }, el('strong', {}, `#${i + 1}`), nick, del),
+      el('div', { className: 'hq-chars' }, ...p.chars.map((c, k) => hqCharBox(c, i, k)))));
+  });
+  return card;
+}
+
+function hqCharBox(c, i, k) {
+  const label = c.isMain ? '본캐' : `부캐 ${k}`;
+  const job = el('select', { on: { change: e => { c.job = e.target.value; hqSave(); hqMeta(); } } },
+    el('option', { value: '' }, '직업'), ...JOBS.map(j => el('option', { value: j }, j)));
+  job.value = c.job;
+  job.setAttribute('aria-label', `${i + 1}번 ${label} 직업`);
+  const power = el('input', { type: 'text', inputMode: 'decimal', value: c.power, placeholder: '전투력 (예: 550k)', autocomplete: 'off', on: {
+    input: e => { c.power = e.target.value; hqSave(); },
+    blur: e => { const n = parsePower(c.power); if (n) { c.power = fmtPower(n); e.target.value = c.power; hqSave(); } } } });
+  power.setAttribute('aria-label', `${i + 1}번 ${label} 전투력`);
+  const box = el('div', { className: 'hq-char' + (c.isMain ? ' main' : '') }, el('span', { className: 'tag' }, label), job, power);
+  if (!c.isMain) {
+    const srv = el('input', { type: 'text', value: c.server, placeholder: '부캐 서버', hidden: !c.sep, autocomplete: 'off',
+      on: { input: e => { c.server = e.target.value; hqSave(); } } });
+    srv.setAttribute('aria-label', `${i + 1}번 ${label} 서버`);
+    const chk = el('input', { type: 'checkbox', checked: c.sep, on: { change: e => { c.sep = e.target.checked; srv.hidden = !c.sep; hqSave(); } } });
+    box.append(el('label', { className: 'chk' }, chk, '서버 분리'), srv);
+  }
+  return box;
+}
+
+function hqRules() {
+  const num = (key, label) => {
+    const sel = el('select', { on: { change: e => { hq[key] = Number(e.target.value); hqSave(); } } }, ...[0, 1, 2, 3].map(n => el('option', { value: String(n) }, String(n))));
+    sel.value = String(hq[key]);
+    return el('label', { className: 'hq-f' }, label, sel);
+  };
+  const avg = el('input', { type: 'text', inputMode: 'decimal', value: hq.minAvg, placeholder: '예: 600k (비우면 확인 안 함)', autocomplete: 'off',
+    on: { input: e => { hq.minAvg = e.target.value; hq.preset = ''; document.getElementById('hqPreset').value = ''; hqSave(); } } });
+  const stack = el('input', { type: 'checkbox', checked: hq.stack, on: { change: e => { hq.stack = e.target.checked; hqSave(); } } });
+  const clear = el('button', { type: 'button', on: { click: () => {
+    if (!confirm('참가자를 모두 지울까요?')) return;
+    hq.people = []; hqGames = []; hqSave(); renderHq();
+  } } }, '참가자 비우기');
+  const go = el('button', { type: 'button', className: 'primary', disabled: !hq.people.length, on: { click: hqGenerate } }, '조합 생성');
+  return el('section', { className: 'card' }, el('h2', {}, '3. 배정 조건'),
+    el('div', { className: 'hq-fields' }, num('minTank', '파티당 최소 탱커'), num('minSupport', '파티당 최소 서폿'), el('label', { className: 'hq-f' }, '파티 최소 평균 전투력', avg)),
+    el('p', { className: 'hint' }, el('label', { className: 'chk' }, stack, '본캐 한 파티에 몰아주기')),
+    el('div', { className: 'hq-dist', id: 'hqDist' }),
+    el('div', { className: 'copy' }, el('p', { className: 'status', id: 'hqStatus', style: 'flex: 1; margin: 0' }), clear, go));
+}
+
+function hqMeta() {
+  const n = Object.fromEntries(JOBS.map(j => [j, 0]));
+  hq.people.forEach(p => p.chars.forEach(c => { if (c.job) n[c.job]++; }));
+  const d = document.getElementById('hqDist');
+  if (d) d.replaceChildren('직업 분포 · ', ...JOBS.map(j => el('span', { className: n[j] ? 'on' : '' }, `${j} ${n[j]}`)));
+}
+
+function hqGenerate() {
+  const people = hq.people.map(p => {
+    const { name, server } = splitNick(p.nick);
+    return { id: p.id, name: name || '이름없음', server, chars: p.chars.filter(c => c.job).map(c => ({ id: c.id, job: c.job, power: parsePower(c.power),
+      isMain: c.isMain, server: !c.isMain && c.sep ? c.server.trim() : '' })) };
+  }).filter(p => p.chars.length);
+  hqGames = buildGames(people, { parties: hq.parties, minTank: hq.minTank, minSupport: hq.minSupport, minAvg: parsePower(hq.minAvg), stack: hq.stack });
+  renderHq();
+  const s = document.getElementById('hqStatus');
+  s.className = 'status' + (hqGames.length ? '' : ' warn');
+  s.textContent = hqGames.length ? `${hqGames.length}판으로 나눴습니다. 아래 결과를 확인하세요.` : '직업을 고른 캐릭터가 없습니다.';
+}
+
+function hqResults() {
+  const head = el('div', { className: 'hq-head' }, el('h2', {}, '4. 결과'));
+  const card = el('section', { className: 'card', id: 'hqResults' }, head);
+  if (!hqGames.length) { card.append(el('p', { className: 'status' }, '참가자를 넣고 "조합 생성"을 누르세요.')); return card; }
+  head.append(hqCopyBtn('전체 복사', hqAllText(hqGames)));
+  card.append(el('p', { className: 'hint' }, '"명단에 넣기"를 누르면 그 판의 1파티는 1~5번, 2파티는 6~10번 줄에 들어가고 무스펠·비탄 화면으로 돌아갑니다.'));
+  hqGames.forEach(g => {
+    const toRoster = el('button', { type: 'button', className: 'primary', on: { click: () => hqToRoster(g) } }, '명단에 넣기');
+    card.append(el('div', { className: 'zone' },
+      el('div', { className: 'hq-head' }, el('strong', {}, `게임 ${g.index}`), el('div', {}, hqCopyBtn('게임 복사', hqGameText(g)), toRoster)),
+      el('div', { className: 'grid' }, ...g.parties.map(p => el('div', { className: `card hq-party p${p.index}` },
+        el('div', { className: 'hq-head' }, el('strong', {}, `파티 ${p.index} · 평균 ${fmtPower(p.avg) || '-'}`), hqCopyBtn('파티 복사', hqPartyText(g, p))),
+        p.warnings.length ? el('p', { className: 'status warn' }, '주의: ' + p.warnings.join(' · ')) : '',
+        el('ol', {}, ...p.slots.map(c => c.external ? el('li', { className: 'ext' }, '외부인원')
+          : el('li', {}, `${c.name}${c.server ? `[${c.server}]` : ''} ${c.job} `,
+            el('span', { className: 'meta' }, `${ROLE_NAME[c.role]} · ${c.isMain ? '본캐' : '부캐'} ${fmtPower(c.power)}`)))))))));
+  });
+  return card;
+}
+
+function hqToRoster(g) {
+  gameRows(g).forEach((r, i) => { st.rows[i].name = r.name; st.rows[i].job = r.job; });
+  st.reserve = [null, null]; touch(0); touch(1); touchSnow();
+  st.raid = st.prevRaid === 'snow' ? 'snow' : 'mus';
+  buildInputs(); render();
+  document.getElementById('inputs').scrollIntoView({ block: 'start' });
+}
 
 if (new URLSearchParams(location.search).has('selftest')) {
   const results = runSelfTest(), passed = results.filter(r => r.pass).length;
