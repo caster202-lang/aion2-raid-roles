@@ -97,9 +97,11 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .copy button { white-space: nowrap; }
 .hint { font-size: 13px; color: var(--muted); margin: 12px 0 0; }
 figure { margin: 20px 0 0; }
-svg { display: block; width: 100%; height: auto; max-width: 640px; margin: 0 auto; }
+svg { display: block; width: 100%; height: auto; max-width: 760px; margin: 0 auto; }
+.dtitle { margin: 0 0 4px; font-weight: 700; font-size: 16px; }
+#diagram > svg { max-width: 600px; }
 .dpair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
-svg text { fill: var(--fg); font-size: 14px; }
+svg text { fill: var(--fg); font-size: 15px; font-weight: 500; }
 svg .dim { stroke: var(--muted); opacity: .45; fill: none; }
 svg .ring { stroke: var(--fg); stroke-width: 2; fill: none; opacity: .85; }
 svg .tick { stroke: var(--fg); stroke-width: 2; opacity: .85; }
@@ -131,7 +133,7 @@ figcaption { font-size: 13px; color: var(--muted); text-align: center; margin-to
   .subnav button[aria-selected=true] { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 700; }
   #subBar { display: none; }
   #raidView > .bar:first-child { margin-top: 0; }
-  .stage.side-by { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; margin-top: 24px; }
+  .stage.side-by { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 24px; align-items: start; margin-top: 24px; }
   .stage.side-by .grid { grid-template-columns: 1fr; }
   .stage.side-by figure { margin: 0; position: sticky; top: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
   .stage:not(.side-by) { margin-top: 24px; }
@@ -200,13 +202,16 @@ svg .zonefill { fill: var(--line); opacity: .35; }
 .hq-f button[aria-pressed=true] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
 .stepper { display: flex; align-items: center; gap: 10px; color: var(--fg); }
 .stepper button { width: 36px; height: 36px; padding: 0; font-size: 18px; line-height: 1; }
-.hq-person { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-top: 12px; background: var(--field); }
+.hq-person { border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-top: 10px; background: var(--field); }
 .hq-top { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
 .hq-top strong { min-width: 2rem; color: var(--muted); }
-.hq-chars { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.hq-chars { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
 .hq-char { border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: grid; gap: 6px; align-content: start; background: var(--card); }
 .hq-char.main { border-color: var(--accent); }
 .hq-char .tag { font-weight: 600; }
+.hq-char .mainnick { min-height: 34px; display: flex; align-items: center; padding: 0 8px; font-size: 13px; color: var(--muted); border: 1px dashed var(--line); border-radius: 6px; }
+.hq-char .jp { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 6px; }
+.hq-rules { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 .hq-char .chk { color: var(--muted); }
 .hq-paste { margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
 .hq-paste summary { cursor: pointer; font-weight: 600; }
@@ -1112,7 +1117,6 @@ function drawWedge(phase) {
   const svg = sv('svg', { viewBox: '0 0 640 400', role: 'img', 'aria-label': `얼음쐐기 ${phase} 배치도` });
   svg.append(sv('circle', { cx, cy, r: 80, class: 'ring' }), sv('circle', { cx, cy, r: 160, class: 'ring' }));
   drawDial(svg, cx, cy, 160, 186, late ? [11, 2, 5, 8] : [12, 3, 6, 9]);
-  svg.append(sv('text', { x: 16, y: 30, 'font-weight': 700, 'font-size': 20 }, late ? '2-2 (50%)' : '2-1'));
   // 2-2 외부는 기둥(2·5시)과 겹치지 않게 조금 더 바깥에 둔다
   [['inner', 80, 0], ['outer', late ? 172 : 160, 4]].forEach(([side, r, base]) => CLOCK4.forEach((h0, k) => {
     const h = late && side === 'outer' ? h0 - 1 : h0, a = ((h % 12) * 30 - 90) * Math.PI / 180;
@@ -1162,8 +1166,8 @@ function drawSnow1() {
     svg.append(sv('text', { x, y: y0, 'text-anchor': anchor, 'font-weight': 600 }, `${p + 1}파티 ${SNOW1[p].route.replace('->', '→')}`));
     names.forEach((n, i) => svg.append(sv('text', { x, y: y0 + 18 + i * 17, 'text-anchor': anchor }, n)));
   });
-  svg.append(sv('text', { x: 16, y: 26, 'font-weight': 600 }, `메인탱커 ${c.ok ? nm(c.order[0]) : '—'} (12시·3시)`));
-  svg.append(sv('text', { x: 624, y: 26, 'text-anchor': 'end', 'font-weight': 600 }, `부탱 ${c.ok ? nm(c.order[1]) : '—'} (6시·9시)`));
+  svg.append(sv('text', { x: cx - 26, y: 12, 'text-anchor': 'end', 'font-weight': 600 }, `메인탱커 ${c.ok ? nm(c.order[0]) : '—'} (12·3시)`));
+  svg.append(sv('text', { x: cx + 26, y: 12, 'font-weight': 600 }, `부탱 ${c.ok ? nm(c.order[1]) : '—'} (6·9시)`));
   drawBoss(svg, cx, cy);
   return svg;
 }
@@ -1217,6 +1221,16 @@ function renderTabs() {
   }));
 }
 
+// 배치도 둘레의 빈 여백을 잘라 낸다 (화면에 붙은 뒤에만 크기를 잴 수 있다)
+function fitDiagrams() {
+  document.querySelectorAll('#diagram svg').forEach(svg => {
+    try {
+      const b = svg.getBBox(), pad = 8;
+      if (b.width && b.height) svg.setAttribute('viewBox', `${b.x - pad} ${b.y - pad} ${b.width + pad * 2} ${b.height + pad * 2}`);
+    } catch (e) { /* 크기를 못 재면 원래 크기 */ }
+  });
+}
+
 function render() {
   save();
   renderNav();
@@ -1243,7 +1257,7 @@ function render() {
   renderFold();
   if (st.raid === 'snow' && st.snowTab === 'n1') {
     document.getElementById('tabHint').textContent = '메인탱커·부탱을 누른 뒤 다른 사람을 누르면 서로 바뀝니다. 탱 브레스 순서: ① 6시 부탱 ② 12시 메인탱커 ③ 9시 부탱 ④ 3시 메인탱커';
-    document.getElementById('diagram').replaceChildren(drawSnow1());
+    document.getElementById('diagram').replaceChildren(drawSnow1()); fitDiagrams();
     document.getElementById('caption').replaceChildren(el('span', { className: 'sw', style: 'background:var(--p1)' }), '1파티·메인탱커',
       el('span', { className: 'sw', style: 'background:var(--p2)' }), '2파티·부탱', ' · ', el('span', { className: 'sw', style: 'background:#ff8a3d' }), '온기구슬', ...markerLegend());
     return;
@@ -1253,7 +1267,7 @@ function render() {
     document.getElementById('tabHint').textContent = wedge
       ? '두 사람을 차례로 누르면 자리가 서로 바뀝니다(서브 포함). 2-2(50%)에서 외부만 한 시간 앞으로 옮깁니다: 12→11시, 3→2시, 6→5시, 9→8시.'
       : '메인탱커·부탱은 1네임드와 같은 사람입니다. 메인탱커나 부탱을 누른 뒤 다른 사람을 누르면 서로 바뀝니다.';
-    document.getElementById('diagram').replaceChildren(wedge ? el('div', { className: 'dpair' }, drawWedge('2-1'), drawWedge('2-2')) : drawWave());
+    document.getElementById('diagram').replaceChildren(wedge ? el('div', { className: 'dpair' }, ...['2-1', '2-2'].map(ph => el('div', {}, el('p', { className: 'dtitle' }, ph === '2-2' ? '2-2 (50%)' : '2-1'), drawWedge(ph)))) : drawWave()); fitDiagrams();
     document.getElementById('caption').replaceChildren(...(wedge
       ? [el('span', { className: 'sw', style: 'background:var(--p1)' }), '내부', el('span', { className: 'sw', style: 'background:var(--one)' }), '외부', ...pillarLegend(), ...markerLegend()]
       : ['구역마다 인원과 이름', ...pillarLegend(), ...markerLegend()]));
@@ -1263,7 +1277,7 @@ function render() {
   document.getElementById('tabHint').textContent = b1
     ? '조마다 드리블 담당을 눌러서 바꿀 수 있습니다. 복사 문구에는 드리블 담당만 들어갑니다.'
     : '같은 파티의 두 자리를 차례로 누르면 서로 바뀝니다.';
-  document.getElementById('diagram').replaceChildren(b1 ? drawBoss1(calc) : drawBoss2(calc));
+  document.getElementById('diagram').replaceChildren(b1 ? drawBoss1(calc) : drawBoss2(calc)); fitDiagrams();
   const cap = document.getElementById('caption');
   cap.replaceChildren(...(b1
     ? [el('span', { className: 'sw', style: 'background:var(--p1)' }), '1파티', el('span', { className: 'sw', style: 'background:var(--p2)' }), '2파티', ' · 동그라미는 시작 자리, 네모는 도착 자리', ...markerLegend()]
@@ -1514,7 +1528,7 @@ function hqCopyBtn(label, text) {
 }
 
 function renderHq() {
-  document.getElementById('hqView').replaceChildren(hqSettings(), hqPeople(), hqRules(), hqResults());
+  document.getElementById('hqView').replaceChildren(hqSettings(), hqPeople(), hqResults());
   hqMeta();
 }
 
@@ -1532,11 +1546,12 @@ function hqSettings() {
     return b;
   };
   const step = d => el('button', { type: 'button', disabled: hq.alts + d < 0 || hq.alts + d > 5, on: { click: () => hqSetAlts(hq.alts + d) } }, d < 0 ? '−' : '+');
-  return el('section', { className: 'card' }, el('h2', {}, el('span', { className: 'step' }, '1'), '기본 설정'),
+  return el('section', { className: 'card' }, el('h2', {}, el('span', { className: 'step' }, '1'), '설정'),
     el('div', { className: 'hq-fields' },
       el('label', { className: 'hq-f' }, '성역 기준', preset),
       el('div', { className: 'hq-f' }, '파티 수', el('div', { className: 'tabs' }, partyBtn(1), partyBtn(2))),
-      el('div', { className: 'hq-f' }, '참가자당 부캐 수', el('div', { className: 'stepper' }, step(-1), el('strong', {}, `본캐 + 부캐 ${hq.alts}`), step(1)))));
+      el('div', { className: 'hq-f' }, '참가자당 부캐 수', el('div', { className: 'stepper' }, step(-1), el('strong', {}, `본캐 + 부캐 ${hq.alts}`), step(1)))),
+    ...hqRuleFields());
 }
 
 function hqPeople() {
@@ -1553,10 +1568,11 @@ function hqPeople() {
     card.append(el('div', { className: 'hq-person' }, el('div', { className: 'hq-top' }, el('strong', {}, `#${i + 1}`), nick, del),
       el('div', { className: 'hq-chars' }, ...p.chars.map((c, k) => hqCharBox(c, i, k)))));
   });
+  card.append(...hqActions());
   return card;
 }
 
-let hqPasteOpen = true; // 처음엔 열어 두고, 접으면 다시 그려도 접힌 채로
+let hqPasteOpen = !hq.people.length; // 참가자가 없을 때만 펼쳐 둔다
 function hqPasteBox() {
   const ta = el('textarea', { rows: 8, spellcheck: false, placeholder: '쓰담[이슈] 궁성 1045\n검엥[이슈] 검성 475\n속담[이슈] 살성 570\n\n민트[시엘] 치유 620\n민트부[시엘] 권 590' });
   ta.setAttribute('aria-label', '참가자 명단 붙여넣기');
@@ -1570,7 +1586,7 @@ function hqPasteBox() {
       const c = p.chars[k];
       return c ? Object.assign(hqChar(k === 0), { nick: c.nick, job: c.job, power: c.power }) : hqChar(false);
     }) }));
-    hqGames = []; hqSave(); renderHq();
+    hqGames = []; hqPasteOpen = false; hqSave(); renderHq(); // 채운 뒤에는 접는다
     const over = people.filter(p => p.chars.length > 6).length;
     const notes = [`${people.length}명을 넣었습니다(본캐 + 부캐 ${hq.alts}).`];
     if (bad.length) notes.push(`${bad.join(', ')}번째 줄은 닉네임이나 직업을 못 읽어 넣지 않았습니다.`);
@@ -1597,17 +1613,18 @@ function hqCharBox(c, i, k) {
     blur: e => { const n = parsePower(c.power); if (n) { c.power = fmtPower(n); e.target.value = c.power; hqSave(); } } } });
   power.setAttribute('aria-label', `${i + 1}번 ${label} 전투력`);
   const box = el('div', { className: 'hq-char' + (c.isMain ? ' main' : '') }, el('span', { className: 'tag' }, label));
-  if (!c.isMain) {
+  if (c.isMain) box.append(el('div', { className: 'mainnick' }, '위 닉네임'));
+  else {
     const nick = el('input', { type: 'text', value: c.nick || '', placeholder: '부캐 닉네임[서버]', maxLength: 30, autocomplete: 'off',
       on: { input: e => { c.nick = e.target.value; hqSave(); } } });
     nick.setAttribute('aria-label', `${i + 1}번 ${label} 닉네임`);
     box.append(nick);
   }
-  box.append(job, power);
+  box.append(el('div', { className: 'jp' }, job, power));
   return box;
 }
 
-function hqRules() {
+function hqRuleFields() {
   const num = (key, label) => {
     const sel = el('select', { on: { change: e => { hq[key] = Number(e.target.value); hqSave(); } } }, ...[0, 1, 2, 3].map(n => el('option', { value: String(n) }, String(n))));
     sel.value = String(hq[key]);
@@ -1616,16 +1633,18 @@ function hqRules() {
   const avg = el('input', { type: 'text', inputMode: 'decimal', value: hq.minAvg, placeholder: '예: 600k (비우면 확인 안 함)', autocomplete: 'off',
     on: { input: e => { hq.minAvg = e.target.value; hq.preset = ''; document.getElementById('hqPreset').value = ''; hqSave(); } } });
   const stack = el('input', { type: 'checkbox', checked: hq.stack, on: { change: e => { hq.stack = e.target.checked; hqSave(); } } });
+  return [el('div', { className: 'hq-fields hq-rules' }, num('minTank', '파티당 최소 탱커'), num('minSupport', '파티당 최소 서폿'), el('label', { className: 'hq-f' }, '파티 최소 평균 전투력', avg)),
+    el('p', { className: 'hq-check' }, el('label', { className: 'chk' }, stack, '본캐 한 파티에 몰아주기'))];
+}
+
+function hqActions() {
   const clear = el('button', { type: 'button', on: { click: () => {
     if (!confirm('참가자를 모두 지울까요?')) return;
     hq.people = []; hqGames = []; hqSave(); renderHq();
   } } }, '참가자 비우기');
   const go = el('button', { type: 'button', className: 'primary', disabled: !hq.people.length, on: { click: hqGenerate } }, '조합 생성');
-  return el('section', { className: 'card' }, el('h2', {}, el('span', { className: 'step' }, '3'), '배정 조건'),
-    el('div', { className: 'hq-fields' }, num('minTank', '파티당 최소 탱커'), num('minSupport', '파티당 최소 서폿'), el('label', { className: 'hq-f' }, '파티 최소 평균 전투력', avg)),
-    el('p', { className: 'hq-check' }, el('label', { className: 'chk' }, stack, '본캐 한 파티에 몰아주기')),
-    el('div', { className: 'hq-dist', id: 'hqDist' }),
-    el('div', { className: 'hq-actions' }, el('p', { className: 'status', id: 'hqStatus' }), clear, go));
+  return [el('div', { className: 'hq-dist', id: 'hqDist' }),
+    el('div', { className: 'hq-actions' }, el('p', { className: 'status', id: 'hqStatus' }), clear, go)];
 }
 
 function hqMeta() {
@@ -1648,11 +1667,12 @@ function hqGenerate() {
   renderHq();
   const s = document.getElementById('hqStatus');
   s.className = 'status' + (hqGames.length ? '' : ' warn');
-  s.textContent = hqGames.length ? `${hqGames.length}판으로 나눴습니다. 아래 결과를 확인하세요.` : '직업을 고른 캐릭터가 없습니다.';
+  s.textContent = hqGames.length ? `${hqGames.length}판으로 나눴습니다.` : '직업을 고른 캐릭터가 없습니다.';
+  if (hqGames.length) document.getElementById('hqResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function hqResults() {
-  const head = el('div', { className: 'hq-head' }, el('h2', {}, el('span', { className: 'step' }, '4'), '결과'));
+  const head = el('div', { className: 'hq-head' }, el('h2', {}, el('span', { className: 'step' }, '3'), '결과'));
   const card = el('section', { className: 'card', id: 'hqResults' }, head);
   if (!hqGames.length) { card.append(el('p', { className: 'empty' }, '참가자를 넣고 "조합 생성"을 누르면 여기에 판별 파티가 나옵니다.')); return card; }
   head.append(hqCopyBtn('전체 복사', hqAllText(hqGames)));
