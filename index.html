@@ -4,18 +4,27 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>아이온2 성역 역할 배분</title>
+<script>try { const t = localStorage.getItem('aion2-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) { /* 저장 불가 */ }</script>
 <style>
 :root {
   --bg: #f4f5f7; --card: #ffffff; --fg: #1c1f26; --muted: #5d6573; --line: #d5d9e0;
   --accent: #5b46d6; --accent-fg: #ffffff; --field: #ffffff;
   --p1: #c8372d; --p2: #1f77c9; --two: #c8372d; --one: #1f77c9; --warn: #9a5b00; --front: #1aa3d9; --back: #d9a400;
 }
+:root { color-scheme: light; }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --bg: #0f1218; --card: #181c25; --fg: #e8ebf1; --muted: #9aa3b2; --line: #2e3442;
     --accent: #a58bff; --accent-fg: #14112b; --field: #10141c;
     --p1: #ff7a6e; --p2: #6db7ff; --two: #ff7a6e; --one: #6db7ff; --warn: #f0b354; --front: #5fd0ff; --back: #ffd24a;
   }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1218; --card: #181c25; --fg: #e8ebf1; --muted: #9aa3b2; --line: #2e3442;
+    --accent: #a58bff; --accent-fg: #14112b; --field: #10141c;
+    --p1: #ff7a6e; --p2: #6db7ff; --two: #ff7a6e; --one: #6db7ff; --warn: #f0b354; --front: #5fd0ff; --back: #ffd24a;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg);
@@ -24,6 +33,10 @@ main { max-width: 1000px; margin: 0 auto; padding: 32px 20px 64px; }
 h1 { font-size: 24px; margin: 0 0 6px; letter-spacing: -0.01em; }
 h2 { font-size: 16px; margin: 0; }
 p.lead { margin: 0 0 20px; color: var(--muted); }
+.top { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }
+.theme { display: flex; flex: none; padding: 3px; gap: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+.theme button { border: 0; background: none; padding: 6px 10px; border-radius: 7px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.theme button[aria-pressed=true] { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
 .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin: 32px 0 12px; }
 #raidView > .bar:first-child { margin-top: 0; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
@@ -45,14 +58,21 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
 .tabs button[aria-selected=true] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
 .pair { margin-bottom: 12px; }
-.pair .route { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.pair .route { display: flex; align-items: baseline; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.clock { font-size: 18px; font-weight: 700; color: var(--fg); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.card.p1 .route .clock { color: var(--p1); } .card.p2 .route .clock { color: var(--p2); }
 .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .choices button, .slots button { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .choices button[aria-pressed=true] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 600; }
 .tag { font-size: 12px; color: var(--muted); margin-right: 6px; }
 .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
-.slots button.two { border-left: 4px solid var(--two); }
-.slots button.one { border-left: 4px solid var(--one); }
+.slots button { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+.slots .clock { min-width: 2.6em; }
+.slots button { white-space: normal; }
+.slots .who { flex: 1; min-width: 0; word-break: keep-all; overflow-wrap: anywhere; line-height: 1.3; }
+.slots .lane { flex: none; font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; }
+.slots button.two { border-left: 4px solid var(--two); } .slots button.two .lane { color: var(--two); }
+.slots button.one { border-left: 4px solid var(--one); } .slots button.one .lane { color: var(--one); }
 .slots button[aria-pressed=true] { box-shadow: inset 0 0 0 2px var(--accent); }
 .reserve { font-size: 13px; margin-bottom: 8px; }
 .copy { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
@@ -81,6 +101,8 @@ figcaption { font-size: 13px; color: var(--muted); text-align: center; margin-to
   .tabs.raid { display: grid; grid-template-columns: repeat(3, 1fr); }
   .tabs.raid button { padding: 9px 4px; }
   #hqView .card { padding: 16px; }
+  .theme span { display: none; }
+  .theme button { padding: 6px 9px; font-size: 15px; }
 }
 body.snow .chk-mus { display: none; }
 body.snow .row { grid-template-columns: 1.2rem minmax(0, 1fr) 5.6rem; }
@@ -159,8 +181,16 @@ svg .zonefill { fill: var(--line); opacity: .35; }
 </head>
 <body>
 <main>
-  <h1>아이온2 성역 역할 배분</h1>
-  <p class="lead">공대원 10명을 넣으면 성역 기믹 자리를 정해 줍니다. 복사해서 채팅창에 붙여넣으세요.</p>
+  <header class="top">
+    <div>
+      <h1>아이온2 성역 역할 배분</h1>
+      <p class="lead">공대원 10명을 넣으면 성역 기믹 자리를 정해 줍니다. 복사해서 채팅창에 붙여넣으세요.</p>
+    </div>
+    <div class="theme" role="group" aria-label="화면 밝기">
+      <button type="button" data-theme-set="light" aria-label="라이트 모드">☀<span> 라이트</span></button>
+      <button type="button" data-theme-set="dark" aria-label="다크 모드">☾<span> 다크</span></button>
+    </div>
+  </header>
   <div class="tabs raid" role="tablist" aria-label="성역">
     <button type="button" role="tab" data-raid="mus">무스펠의 성배</button>
     <button type="button" role="tab" data-raid="snow">비탄의 설원</button>
@@ -831,14 +861,14 @@ function renderResults(calc) {
           return b;
         }));
         card.append(el('div', { className: 'pair' },
-          el('div', { className: 'route' }, `${k * 2 + 1},${k * 2 + 2}번 · ${from}시 → ${to}시`), choices));
+          el('div', { className: 'route' }, el('span', { className: 'clock' }, `${from}시 → ${to}시`), el('span', {}, `${k * 2 + 1}·${k * 2 + 2}번`)), choices));
       });
     } else if (c.ok) {
       card.append(el('div', { className: 'slots' }, ...PARTY[p].clocks.map((h, k) => {
         const isTwo = TWO_LINE.includes(h), name = c.rows[c.slots[k]].name.trim();
         const b = el('button', { type: 'button', className: isTwo ? 'two' : 'one', title: name,
           on: { click: () => pickSlot(p, k, c.slots) } },
-          el('span', { className: 'tag' }, `${h}시 · ${isTwo ? '2줄' : '1줄'}`), name);
+          el('span', { className: 'clock' }, `${h}시`), el('span', { className: 'who' }, name), el('span', { className: 'lane' }, isTwo ? '2줄' : '1줄'));
         b.setAttribute('aria-pressed', String(!!picked && picked.p === p && picked.k === k));
         return b;
       })));
@@ -1324,6 +1354,21 @@ shotFile.addEventListener('change', () => { readShot(shotFile.files[0]); shotFil
 zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
 zone.addEventListener('dragleave', () => zone.classList.remove('over'));
 zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('over'); readShot(e.dataTransfer.files[0]); });
+
+/* ---------- 라이트·다크 전환 ---------- */
+const THEME_KEY = 'aion2-theme';
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+function showTheme() {
+  const now = document.documentElement.dataset.theme || (darkQuery.matches ? 'dark' : 'light');
+  document.querySelectorAll('[data-theme-set]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themeSet === now)));
+}
+document.querySelectorAll('[data-theme-set]').forEach(b => b.addEventListener('click', () => {
+  document.documentElement.dataset.theme = b.dataset.themeSet;
+  lsSet(THEME_KEY, b.dataset.themeSet);
+  showTheme();
+}));
+darkQuery.addEventListener('change', showTheme);
+showTheme();
 
 /* ---------- 본부 조합 화면 ---------- */
 const HQ_KEY = 'aion2-hq-v1';
