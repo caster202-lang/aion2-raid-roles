@@ -10,6 +10,7 @@
   color-scheme: light;
   --bg: #e9eef4; --card: #f8fafc; --fg: #1d2733; --muted: #5a6b7e; --line: #cfd9e5;
   --accent: #3f5268; --accent-fg: #ffffff; --field: #ffffff;
+  --cap: #4a6d96; --cap-bg: #e2ebf6; --cap-fg: #ffffff;
   --p1: #cf5a4f; --p2: #2f72bd; --two: #cf5a4f; --one: #2f72bd; --warn: #9a5f00; --front: #1593c4; --back: #c08f00;
 }
 @media (prefers-color-scheme: dark) {
@@ -17,6 +18,7 @@
     color-scheme: dark;
     --bg: #0c0a0b; --card: #1c1819; --fg: #efeced; --muted: #a8979c; --line: #3a3133;
     --accent: #d1cfd0; --accent-fg: #1a1516; --field: #141112;
+  --cap: #c9a3b2; --cap-bg: #261c21; --cap-fg: #1e1418;
     --p1: #ff8b7f; --p2: #78b6ff; --two: #ff8b7f; --one: #78b6ff; --warn: #f0b354; --front: #5fd0ff; --back: #ffd24a;
   }
 }
@@ -24,6 +26,7 @@
   color-scheme: dark;
   --bg: #0c0a0b; --card: #1c1819; --fg: #efeced; --muted: #a8979c; --line: #3a3133;
   --accent: #d1cfd0; --accent-fg: #1a1516; --field: #141112;
+  --cap: #c9a3b2; --cap-bg: #261c21; --cap-fg: #1e1418;
   --p1: #ff8b7f; --p2: #78b6ff; --two: #ff8b7f; --one: #78b6ff; --warn: #f0b354; --front: #5fd0ff; --back: #ffd24a;
 }
 * { box-sizing: border-box; }
@@ -164,12 +167,12 @@ svg .pillart { fill: var(--card); font-size: 12px; font-weight: 700; }
 svg .front { stroke: var(--front); fill: none; stroke-width: 5; stroke-linecap: round; }
 svg .back { stroke: var(--back); fill: none; stroke-width: 5; stroke-linecap: round; }
 svg .zonefill { fill: var(--line); opacity: .35; }
-.paste { margin-bottom: 16px; border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+.paste { margin-bottom: 16px; border: 2px solid var(--cap); background: var(--cap-bg); }
 .paste summary { cursor: pointer; font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 10px; list-style: none; }
 .paste summary::-webkit-details-marker { display: none; }
-.paste summary .cam { display: inline-grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 10px; background: var(--accent); color: var(--accent-fg); font-size: 18px; }
+.paste summary .cam { display: inline-grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 10px; background: var(--cap); color: var(--cap-fg); font-size: 18px; }
 .paste summary .sub { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
-.paste summary .arrow { margin-left: auto; color: var(--accent); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.paste summary .arrow { margin-left: auto; color: var(--cap); font-size: 13px; font-weight: 700; white-space: nowrap; }
 .paste[open] summary .arrow::after { content: '접기 ▲'; }
 .paste:not([open]) summary .arrow::after { content: '열기 ▼'; }
 .paste[open] summary { margin-bottom: 4px; }
@@ -183,8 +186,8 @@ svg .zonefill { fill: var(--line); opacity: .35; }
 .keyrow a { color: var(--accent); font-size: 13px; }
 .keyrow label { font-size: 13px; margin-right: 12px; }
 .keyrow + .keyrow { margin-top: 6px; }
-#shotZone { margin-top: 8px; padding: 22px 16px; border: 2px dashed var(--accent); border-radius: 10px; background: var(--card); text-align: center; color: var(--fg); font-size: 14px; font-weight: 600; cursor: pointer; }
-#shotZone:focus, #shotZone.over { border-color: var(--accent); outline: none; }
+#shotZone { margin-top: 8px; padding: 22px 16px; border: 2px dashed var(--cap); border-radius: 10px; background: var(--card); text-align: center; color: var(--fg); font-size: 14px; font-weight: 600; cursor: pointer; }
+#shotZone:focus, #shotZone.over { border-style: solid; outline: none; }
 #shotZone img { display: block; max-width: 100%; max-height: 200px; margin: 0 auto 6px; }
 #selftest li.fail { color: var(--p1); font-weight: 600; }
 #hqView:not([hidden]) { display: grid; gap: 16px; }
@@ -435,18 +438,23 @@ function textWedge(st, side) {
 
 // 1네임드 order: [메인탱커, 부탱, 나머지 8명(줄 순서)] — 수호성 → 검성 순
 const TANK_JOBS = ['수호성', '검성'];
+// 파티는 5명씩 고정: 메인탱커는 1파티에서, 부탱은 2파티에서 수호성 → 검성 순으로 고른다. 없으면 그 파티 첫 줄
 function autoSnow1(rows) {
-  const cands = TANK_JOBS.flatMap(j => ALL.filter(i => rows[i].job === j));
-  const tanks = cands.slice(0, 2);
-  const short = tanks.length < 2;
-  ALL.forEach(i => { if (tanks.length < 2 && !tanks.includes(i)) tanks.push(i); });
+  let short = false;
+  const tanks = [0, 1].map(p => {
+    const idx = IDX.map(i => p * 5 + i), t = TANK_JOBS.flatMap(j => idx.filter(i => rows[i].job === j))[0];
+    if (t === undefined) { short = true; return idx[0]; }
+    return t;
+  });
   return { order: tanks.concat(ALL.filter(i => !tanks.includes(i))), short };
 }
 
 function computeSnow1(st) {
   const missing = namesMissing(st);
   if (missing) return { ok: false, missing };
-  const auto = autoSnow1(st.rows), manual = isPerm(st.snow1, 10);
+  const auto = autoSnow1(st.rows);
+  // 직접 바꾼 순서도 메인탱커는 1파티, 부탱은 2파티일 때만 쓴다 (예전 저장값 보호)
+  const manual = isPerm(st.snow1, 10) && st.snow1[0] < 5 && st.snow1[1] >= 5;
   const order = manual ? st.snow1 : auto.order;
   const rest = order.slice(2);
   return { ok: true, order, short: manual ? false : auto.short, groups: [rest.filter(i => i < 5), rest.filter(i => i >= 5)] };
@@ -743,9 +751,12 @@ function runSelfTest() {
   st = snow(['검성', '궁성', '수호성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '호법성']);
   eq('설원 1넴: 수호성 둘이 메인탱커·부탱', autoSnow1(st.rows), { order: [2, 5, 0, 1, 3, 4, 6, 7, 8, 9], short: false });
   st = snow(['검성', '궁성', '살성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '검성']);
-  eq('설원 1넴: 수호성 하나면 검성이 부탱', autoSnow1(st.rows), { order: [5, 0, 1, 2, 3, 4, 6, 7, 8, 9], short: false });
+  eq('설원 1넴: 1파티는 수호성 없으면 검성이 메인탱커', autoSnow1(st.rows), { order: [0, 5, 1, 2, 3, 4, 6, 7, 8, 9], short: false });
   st = snow(['궁성', '궁성', '살성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '호법성']);
-  eq('설원 1넴: 후보 부족 → 첫 줄로 채우고 알림', autoSnow1(st.rows), { order: [5, 0, 1, 2, 3, 4, 6, 7, 8, 9], short: true });
+  eq('설원 1넴: 1파티에 탱커 없음 → 1파티 첫 줄, 알림', autoSnow1(st.rows), { order: [0, 5, 1, 2, 3, 4, 6, 7, 8, 9], short: true });
+  st = snow(['수호성', '수호성', '살성', '마도성', '치유성', '궁성', '정령성', '권성', '궁성', '호법성']);
+  eq('설원 1넴: 탱커가 1파티에만 둘이어도 파티는 5명씩', [autoSnow1(st.rows).order.slice(0, 2), computeSnow1(Object.assign(st, { rows: st.rows.map((r, i) => ({ ...r, name: 'n' + i })) })).groups.map(g => g.length)],
+    [[0, 5], [4, 4]]);
   st = snow(['검성', '궁성', '수호성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '호법성']);
   st.rows.forEach((r, i) => { r.name = ['가가', '나나', '다다', '라라', '마마', '바바', '사사', '아아', '자자', '차차'][i]; });
   eq('설원 1넴: 파티별 문구', [textSnow1(st, 0), textSnow1(st, 1)],
@@ -753,8 +764,10 @@ function runSelfTest() {
   st = blankState(); st.rows.forEach((r, i) => { r.name = ['가가', '나나', '다다', '라라', '마마', '바바', '사사', '아아', '자자', '차차'][i]; });
   st.rows.forEach((r, i) => { r.job = ['검성', '궁성', '수호성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '호법성'][i]; });
   eq('파도: 메인탱커·부탱·파티', textWave(st), '[파도] 1시 메인탱커 다다 / 5시 2파티 사사, 아아, 자자, 차차 / 7시 부탱 바바 / 11시 1파티 가가, 나나, 라라, 마마');
+  st.snow1 = [0, 5, 2, 1, 3, 4, 6, 7, 8, 9];
+  eq('파도: 1넴에서 바꾼 메인탱커를 따름', textWave(st), '[파도] 1시 메인탱커 가가 / 5시 2파티 사사, 아아, 자자, 차차 / 7시 부탱 바바 / 11시 1파티 다다, 나나, 라라, 마마');
   st.snow1 = [5, 2, 0, 1, 3, 4, 6, 7, 8, 9];
-  eq('파도: 1넴에서 바꾼 메인탱커를 따름', textWave(st), '[파도] 1시 메인탱커 바바 / 5시 2파티 사사, 아아, 자자, 차차 / 7시 부탱 다다 / 11시 1파티 가가, 나나, 라라, 마마');
+  eq('파도: 파티를 넘는 예전 저장값은 무시', textWave(st), '[파도] 1시 메인탱커 다다 / 5시 2파티 사사, 아아, 자자, 차차 / 7시 부탱 바바 / 11시 1파티 가가, 나나, 라라, 마마');
 
   // 명단 붙여넣기
   eq('명단: 번호·머리줄·구분 기호', parseRoster('1파티\n1. 민트 궁성\n2) 은퐁 - 치유성\n2파티\n홍권보[이스] 검성\n배술 (호법성)\n아노코\n'),
@@ -956,6 +969,8 @@ function snowButton(list, k, g, tag) {
 function pickSnow(list, k) {
   if (snowPick && snowPick.list === list && snowPick.k !== k) {
     const next = ({ wedge: computeWedge, snow1: computeSnow1 })[list](st).order.slice();
+    // 1네임드·파도는 파티가 고정이라 같은 파티 사람끼리만 바꾼다
+    if (list === 'snow1' && (next[snowPick.k] < 5) !== (next[k] < 5)) { snowPick = { list, k }; render(); return; }
     [next[snowPick.k], next[k]] = [next[k], next[snowPick.k]];
     st[list] = next; snowPick = null;
   } else {
@@ -978,7 +993,7 @@ function renderSnow1(host) {
     card.append(copyRow(p, textSnow1(st, p), `${p + 1}파티 복사`, empty));
     host.append(card);
   });
-  if (c.ok && c.short) showNote('수호성·검성이 2명보다 적어 다른 직업을 탱커로 넣었습니다. 눌러서 바꿔 주세요.');
+  if (c.ok && c.short) showNote('수호성·검성이 없는 파티는 첫 번째 사람을 탱커로 넣었습니다. 같은 파티 안에서 눌러서 바꿔 주세요.');
 }
 
 function renderWedge(host) {
