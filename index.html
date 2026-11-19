@@ -27,9 +27,12 @@
   --p1: #ff8b7f; --p2: #78b6ff; --two: #ff8b7f; --one: #78b6ff; --warn: #f0b354; --front: #5fd0ff; --back: #ffd24a;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--fg);
   font: 15px/1.5 "Pretendard", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif; }
 main { max-width: 1000px; margin: 0 auto; padding: 32px 20px 64px; }
+.navgrp .subnav { display: none; }
+.tabs.raid .navgrp > button { width: 100%; }
 h1 { font-size: 24px; margin: 0 0 6px; letter-spacing: -0.01em; }
 h2 { font-size: 16px; margin: 0; }
 p.lead { margin: 0 0 20px; color: var(--muted); }
@@ -112,6 +115,27 @@ figcaption { font-size: 13px; color: var(--muted); text-align: center; margin-to
 .sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 4px 0 10px; }
 .tabs.raid { margin: 0 0 24px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
 .tabs.raid button { padding: 9px 18px; font-weight: 600; }
+.roster-sum { display: block; width: 100%; text-align: left; margin-bottom: 16px; font-size: 14px; color: var(--muted); line-height: 1.7; cursor: pointer; }
+.roster-sum b { color: var(--fg); margin-right: 6px; }
+.roster-sum .p1 { color: var(--p1); } .roster-sum .p2 { color: var(--p2); }
+/* 넓은 화면: 왼쪽 세로 메뉴, 결과와 배치도 나란히 */
+@media (min-width: 1000px) {
+  main { max-width: 1280px; }
+  .layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 28px; align-items: start; }
+  .side { position: sticky; top: 16px; }
+  .side .tabs.raid { flex-direction: column; flex-wrap: nowrap; gap: 6px; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+  .side .navgrp > button { width: 100%; text-align: left; }
+  .side .navgrp .subnav { display: grid; gap: 2px; margin: 4px 0 6px 12px; padding-left: 10px; border-left: 2px solid var(--line); }
+  .subnav button { border: 0; background: none; text-align: left; padding: 6px 10px; font-size: 14px; color: var(--muted); }
+  .subnav button:hover { color: var(--fg); }
+  .subnav button[aria-selected=true] { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 700; }
+  #subBar { display: none; }
+  #raidView > .bar:first-child { margin-top: 0; }
+  .stage.side-by { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; margin-top: 24px; }
+  .stage.side-by .grid { grid-template-columns: 1fr; }
+  .stage.side-by figure { margin: 0; position: sticky; top: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+  .stage:not(.side-by) { margin-top: 24px; }
+}
 @media (max-width: 480px) {
   main { padding: 24px 16px 48px; }
   .tabs.raid { display: grid; grid-template-columns: repeat(3, 1fr); }
@@ -206,12 +230,15 @@ svg .zonefill { fill: var(--line); opacity: .35; }
       <button type="button" data-theme-set="dark" aria-label="다크 모드">☾<span> 다크</span></button>
     </div>
   </header>
-  <div class="tabs raid" role="tablist" aria-label="성역">
-    <button type="button" role="tab" data-raid="mus">무스펠의 성배</button>
-    <button type="button" role="tab" data-raid="snow">비탄의 설원</button>
-    <button type="button" role="tab" data-raid="hq">본부 조합</button>
-  </div>
-
+  <div class="layout">
+  <nav class="side" aria-label="성역 메뉴">
+    <div class="tabs raid">
+      <div class="navgrp"><button type="button" data-raid="mus">무스펠의 성배</button><div class="subnav" data-sub="mus"></div></div>
+      <div class="navgrp"><button type="button" data-raid="snow">비탄의 설원</button><div class="subnav" data-sub="snow"></div></div>
+      <div class="navgrp"><button type="button" data-raid="hq">본부 조합</button></div>
+    </div>
+  </nav>
+  <div class="content">
   <section id="selftest" class="card" hidden></section>
 
   <div id="hqView" hidden></div>
@@ -219,10 +246,12 @@ svg .zonefill { fill: var(--line); opacity: .35; }
   <div class="bar">
     <h2>공대원 입력</h2>
     <div>
+      <button type="button" id="btnFold">접기</button>
       <button type="button" id="btnAuto">자동 배정으로 되돌리기</button>
       <button type="button" id="btnReset">초기화</button>
     </div>
   </div>
+  <button type="button" class="card roster-sum" id="rosterSum" hidden></button>
   <details class="card paste" id="pasteBox">
     <summary>명단 붙여넣기 · 캡처를 AI에게 읽혀서 한 번에 채우기</summary>
     <h3 class="paste-h">캡처 바로 읽기</h3>
@@ -254,16 +283,22 @@ svg .zonefill { fill: var(--line); opacity: .35; }
   </details>
   <div class="grid" id="inputs"></div>
 
-  <div class="bar">
+  <div class="bar" id="subBar">
     <div class="tabs" role="tablist" id="subTabs" aria-label="기믹"></div>
   </div>
-  <div class="grid" id="results"></div>
-  <p class="status warn" id="resultsNote" hidden></p>
-  <p class="hint" id="tabHint"></p>
-  <figure>
-    <div id="diagram"></div>
-    <figcaption id="caption"></figcaption>
-  </figure>
+  <div class="stage" id="stage">
+    <div class="stage-main">
+      <div class="grid" id="results"></div>
+      <p class="status warn" id="resultsNote" hidden></p>
+      <p class="hint" id="tabHint"></p>
+    </div>
+    <figure>
+      <div id="diagram"></div>
+      <figcaption id="caption"></figcaption>
+    </figure>
+  </div>
+  </div>
+  </div>
   </div>
 </main>
 
@@ -282,7 +317,7 @@ function blankState() {
   return {
     rows: Array.from({ length: 10 }, (_, g) => ({ name: '', job: '', two: g % 5 === 1 || g % 5 === 3 })), // 2번·4번 줄은 2줄 체크가 기본
     reserve: [null, null], dribble: [[null, null], [null, null]], slots: [null, null], tab: 'b1',
-    raid: 'mus', prevRaid: 'mus', snowTab: 'n1', snow1: null, wedge: null
+    raid: 'mus', prevRaid: 'mus', snowTab: 'n1', snow1: null, wedge: null, fold: false
   };
 }
 
@@ -1140,6 +1175,24 @@ function drawWave() {
 
 const SUBTABS = { mus: [['b1', '1네임드 드리블'], ['b2', '2네임드 신호등']], snow: [['n1', '1네임드'], ['wedge', '얼음쐐기'], ['wave', '파도패턴']] };
 
+// 왼쪽 메뉴: 성역 아래 기믹 목록 (넓은 화면에서만 보인다)
+function renderNav() {
+  document.querySelectorAll('[data-raid]').forEach(t => t.setAttribute('aria-selected', String(t.dataset.raid === st.raid)));
+  document.querySelectorAll('.subnav').forEach(box => {
+    const raid = box.dataset.sub, cur = raid === 'snow' ? st.snowTab : st.tab;
+    box.replaceChildren(...SUBTABS[raid].map(([id, label]) => {
+      const b = el('button', { type: 'button', on: { click: () => {
+        if (st.raid !== 'hq') st.prevRaid = st.raid;
+        st.raid = raid;
+        if (raid === 'snow') st.snowTab = id; else st.tab = id;
+        picked = null; snowPick = null; render();
+      } } }, label);
+      b.setAttribute('aria-selected', String(st.raid === raid && id === cur));
+      return b;
+    }));
+  });
+}
+
 function renderTabs() {
   document.body.classList.toggle('snow', st.raid === 'snow');
   document.querySelectorAll('[data-raid]').forEach(t => t.setAttribute('aria-selected', String(t.dataset.raid === st.raid)));
@@ -1156,6 +1209,7 @@ function renderTabs() {
 
 function render() {
   save();
+  renderNav();
   const hqOn = st.raid === 'hq';
   document.getElementById('hqView').hidden = !hqOn;
   document.getElementById('raidView').hidden = hqOn;
@@ -1175,6 +1229,8 @@ function render() {
   });
   renderTabs();
   renderResults(calc);
+  document.getElementById('stage').classList.toggle('side-by', st.raid === 'mus' || st.snowTab === 'n1');
+  renderFold();
   if (st.raid === 'snow' && st.snowTab === 'n1') {
     document.getElementById('tabHint').textContent = '메인탱커·부탱을 누른 뒤 다른 사람을 누르면 서로 바뀝니다. 탱 브레스 순서: ① 6시 부탱 ② 12시 메인탱커 ③ 9시 부탱 ④ 3시 메인탱커';
     document.getElementById('diagram').replaceChildren(drawSnow1());
@@ -1208,6 +1264,17 @@ document.querySelectorAll('[data-raid]').forEach(t => t.addEventListener('click'
   if (st.raid !== 'hq') st.prevRaid = st.raid; // 명단에 넣기 뒤 돌아갈 화면
   st.raid = t.dataset.raid; picked = null; snowPick = null; render();
 }));
+function renderFold() {
+  const fold = !!st.fold, sum = document.getElementById('rosterSum');
+  document.getElementById('inputs').hidden = fold;
+  document.getElementById('pasteBox').hidden = fold;
+  sum.hidden = !fold;
+  document.getElementById('btnFold').textContent = fold ? '공대원 수정' : '접기';
+  if (fold) sum.replaceChildren(...[0, 1].flatMap(p => [el('b', { className: `p${p + 1}` }, `${p + 1}파티`),
+    IDX.map(i => st.rows[p * 5 + i].name.trim() || '—').join(' · '), p ? '' : el('br')]));
+}
+document.getElementById('btnFold').addEventListener('click', () => { st.fold = !st.fold; render(); });
+document.getElementById('rosterSum').addEventListener('click', () => { st.fold = false; render(); });
 document.getElementById('btnAuto').addEventListener('click', () => {
   st.reserve = [null, null]; touch(0); touch(1); touchSnow(); render();
 });
@@ -1232,6 +1299,7 @@ function fillRoster() {
   const noJob = list.slice(0, 10).filter(m => !m.job).length;
   if (noJob) notes.push(`직업을 못 읽은 사람 ${noJob}명은 직접 골라 주세요.`);
   const warn = notes.length > 1; // 인원·직업 문제만 노란 글씨
+  if (!warn) { st.fold = true; render(); } // 10명이 문제없이 들어가면 입력칸을 접는다
   if (changed) notes.push(`예전에 직접 고친 직업 ${changed}명을 적용했습니다.`);
   status.className = 'status' + (warn ? ' warn' : '');
   status.textContent = notes.join(' ');
@@ -1597,6 +1665,7 @@ function hqToRoster(g) {
   gameRows(g).forEach((r, i) => { st.rows[i].name = r.name; st.rows[i].job = r.job; });
   st.reserve = [null, null]; touch(0); touch(1); touchSnow();
   st.raid = st.prevRaid === 'snow' ? 'snow' : 'mus';
+  st.fold = true;
   buildInputs(); render();
   document.getElementById('inputs').scrollIntoView({ block: 'start' });
 }
