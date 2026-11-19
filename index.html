@@ -475,11 +475,9 @@ function computeWave(st) {
   return { ok: true, order: c.order, zones: [[c.order[0]], c.groups[1], [c.order[1]], c.groups[0]] };
 }
 
-function textWave(st) {
-  const c = computeWave(st);
-  if (!c.ok) return null;
-  return '[파도] ' + c.zones.map((z, i) => z.length ? `${WAVE_ZONES[i]} ${z.map(g => st.rows[g].name.trim()).join(', ')}` : null)
-    .filter(Boolean).join(' / ');
+// 파도패턴 복사는 이름 없이 자리만: 1시 메인탱커 → 11시 1파티 → 7시 부탱 → 5시 2파티
+function textWave() {
+  return '[파도] ' + [0, 3, 2, 1].map(i => WAVE_ZONES[i]).join(' / ');
 }
 
 /* ---------- 명단 붙여넣기 ---------- */
@@ -763,11 +761,12 @@ function runSelfTest() {
     ['[1넴] 9시->12시 가가, 나나, 라라, 마마 / 메인탱커 다다', '[1넴] 3시->6시 사사, 아아, 자자, 차차 / 부탱 바바']);
   st = blankState(); st.rows.forEach((r, i) => { r.name = ['가가', '나나', '다다', '라라', '마마', '바바', '사사', '아아', '자자', '차차'][i]; });
   st.rows.forEach((r, i) => { r.job = ['검성', '궁성', '수호성', '마도성', '치유성', '수호성', '정령성', '권성', '궁성', '호법성'][i]; });
-  eq('파도: 메인탱커·부탱·파티', textWave(st), '[파도] 1시 메인탱커 다다 / 5시 2파티 사사, 아아, 자자, 차차 / 7시 부탱 바바 / 11시 1파티 가가, 나나, 라라, 마마');
+  eq('파도: 복사 문구는 자리만', textWave(), '[파도] 1시 메인탱커 / 11시 1파티 / 7시 부탱 / 5시 2파티');
+  eq('파도: 구역 인원 1-4-1-4', computeWave(st).zones.map(z => z.map(g => st.rows[g].name)), [['다다'], ['사사', '아아', '자자', '차차'], ['바바'], ['가가', '나나', '라라', '마마']]);
   st.snow1 = [0, 5, 2, 1, 3, 4, 6, 7, 8, 9];
-  eq('파도: 1넴에서 바꾼 메인탱커를 따름', textWave(st), '[파도] 1시 메인탱커 가가 / 5시 2파티 사사, 아아, 자자, 차차 / 7시 부탱 바바 / 11시 1파티 다다, 나나, 라라, 마마');
+  eq('파도: 1넴에서 바꾼 메인탱커를 따름', computeWave(st).zones[0].map(g => st.rows[g].name), ['가가']);
   st.snow1 = [5, 2, 0, 1, 3, 4, 6, 7, 8, 9];
-  eq('파도: 파티를 넘는 예전 저장값은 무시', textWave(st), '[파도] 1시 메인탱커 다다 / 5시 2파티 사사, 아아, 자자, 차차 / 7시 부탱 바바 / 11시 1파티 가가, 나나, 라라, 마마');
+  eq('파도: 파티를 넘는 예전 저장값은 무시', computeWave(st).zones[0].map(g => st.rows[g].name), ['다다']);
 
   // 명단 붙여넣기
   eq('명단: 번호·머리줄·구분 기호', parseRoster('1파티\n1. 민트 궁성\n2) 은퐁 - 치유성\n2파티\n홍권보[이스] 검성\n배술 (호법성)\n아노코\n'),
@@ -1130,20 +1129,22 @@ function drawBoss2(calc) {
 function drawWedge(phase) {
   const cx = 320, cy = 200, c = computeWedge(st), late = phase === '2-2';
   const svg = sv('svg', { viewBox: '0 0 640 400', role: 'img', 'aria-label': `얼음쐐기 ${phase} 배치도` });
-  svg.append(sv('circle', { cx, cy, r: 80, class: 'ring' }), sv('circle', { cx, cy, r: 160, class: 'ring' }));
-  drawDial(svg, cx, cy, 160, 186, late ? [11, 2, 5, 8] : [12, 3, 6, 9]);
+  svg.append(sv('circle', { cx, cy, r: 80, class: 'ring' }), sv('circle', { cx, cy, r: 215, class: 'ring' }));
+  drawDial(svg, cx, cy, 215, 241, late ? [11, 2, 5, 8] : [12, 3, 6, 9]);
   // 2-2 외부는 기둥(2·5시)과 겹치지 않게 조금 더 바깥에 둔다
-  [['inner', 80, 0], ['outer', late ? 172 : 160, 4]].forEach(([side, r, base]) => CLOCK4.forEach((h0, k) => {
+  [['inner', 80, 0], ['outer', late ? 227 : 215, 4]].forEach(([side, r, base]) => CLOCK4.forEach((h0, k) => {
     const h = late && side === 'outer' ? h0 - 1 : h0, a = ((h % 12) * 30 - 90) * Math.PI / 180;
     const x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
     svg.append(sv('circle', { cx: x, cy: y, r: 10, class: `mark ${side}` }));
     const name = c.ok ? st.rows[c.order[base + k]].name.trim() : '—';
-    // 내부 3·9시 이름표는 점 위에서 바깥쪽으로 써서 외부 3·9시 이름과 보스 마커에 겹치지 않게 한다
-    const lab = side === 'inner' && (h === 3 || h === 9)
-      ? { x: h === 3 ? x - 8 : x + 8, y: y - 18, 'text-anchor': h === 3 ? 'start' : 'end' } : placeLabel(h, x, y, 16);
-    svg.append(sv('text', lab, `${side === 'inner' ? '내' : '외'} ${h}시 ${name}`));
+    // 내부 3·9시 이름표는 점 바깥쪽 옆(안쪽 원과 바깥 원 사이)에 두 줄로 쓴다
+    if (side === 'inner' && (h === 3 || h === 9)) {
+      const t = sv('text', { 'text-anchor': h === 3 ? 'start' : 'end' }), tx = h === 3 ? x + 15 : x - 15;
+      t.append(sv('tspan', { x: tx, y: y - 3 }, `내 ${h}시`), sv('tspan', { x: tx, y: y + 15 }, name));
+      svg.append(t);
+    } else svg.append(sv('text', placeLabel(h, x, y, 16), `${side === 'inner' ? '내' : '외'} ${h}시 ${name}`));
   }));
-  drawPillars(svg, cx, cy, 139);
+  drawPillars(svg, cx, cy, 190);
   drawBoss(svg, cx, cy);
   return svg;
 }
@@ -1193,9 +1194,10 @@ function drawWave() {
   svg.append(sv('line', { x1: cx - R, y1: cy, x2: cx + R, y2: cy, class: 'dim' }), sv('line', { x1: cx, y1: cy - R, x2: cx, y2: cy + R, class: 'dim' }));
   drawDial(svg, cx, cy, R, 190, []);
   [[1, -1], [1, 1], [-1, 1], [-1, -1]].forEach(([sx, sy], z) => {
-    const x = cx + sx * 85, y = sy < 0 ? cy - 105 : cy + 40; // 아래 구역은 위로 올려 5·7시 기둥 번호를 가리지 않게
+    // 구역 이름과 명단 묶음을 사분면 가운데에 두되 큰 원·기둥에 닿지 않게 안쪽(가로 70, 세로 75)으로
+    const names = c.ok ? c.zones[z] : [], x = cx + sx * 70, y = cy + sy * 75 - names.length * 17 / 2 + 5;
     svg.append(sv('text', { x, y, 'text-anchor': 'middle', 'font-weight': 600 }, WAVE_ZONES[z]));
-    (c.ok ? c.zones[z] : []).forEach((g, i) => svg.append(sv('text', { x, y: y + 20 + i * 17, 'text-anchor': 'middle' }, st.rows[g].name.trim())));
+    names.forEach((g, i) => svg.append(sv('text', { x, y: y + 20 + i * 17, 'text-anchor': 'middle' }, st.rows[g].name.trim())));
   });
   drawPillars(svg, cx, cy, R);
   drawBoss(svg, cx, cy);
