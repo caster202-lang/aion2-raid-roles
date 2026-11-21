@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://caster202-lang.github.io/aion2-raid-roles/sitemap.xml
